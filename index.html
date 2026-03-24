@@ -1,591 +1,367 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Product Data Extractor - AI Powered</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
-<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a0e17; }
-  @keyframes spin { to { transform: rotate(360deg) } }
-  select option { background: #0d1117; color: #e2e8f0; }
-  *::-webkit-scrollbar { width: 5px; height: 5px; }
-  *::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-  /* API Key Modal */
-  .api-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px; }
-  .api-modal { background:#111827;border:1px solid #1e293b;border-radius:16px;padding:32px;max-width:480px;width:100%;color:#e2e8f0;font-family:'Segoe UI',system-ui,sans-serif; }
-  .api-modal h2 { font-size:20px;margin-bottom:8px;color:#f1f5f9; }
-  .api-modal p { font-size:13px;color:#94a3b8;margin-bottom:20px;line-height:1.5; }
-  .api-modal input { width:100%;padding:12px 14px;background:#0d1117;border:1px solid #2d3748;border-radius:8px;color:#e2e8f0;font-size:14px;outline:none;margin-bottom:12px;box-sizing:border-box; }
-  .api-modal input:focus { border-color:#3b82f6; }
-  .api-modal button { width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer; }
-  .api-modal button:disabled { background:#1e293b;color:#64748b;cursor:not-allowed; }
-  .api-modal .hint { font-size:11px;color:#4a5568;margin-top:8px; }
-  .api-modal .err { color:#fca5a5;font-size:12px;margin-bottom:8px; }
-  .api-modal .saved { display:flex;align-items:center;gap:6px;padding:8px 12px;background:#0d2818;border:1px solid #065f46;border-radius:8px;color:#4ade80;font-size:12px;margin-bottom:12px; }
-</style>
-</head>
-<body>
-<div id="root"></div>
-<script type="text/babel">
-const { useState, useRef, useCallback } = React;
-
-const DD = {"types":["Beauty","HouseHold","Personal Care"],"cats":{"Beauty":["Eye Liners & Pencils","Eye Mascaras","Eye Shadows","Eyebrow Care","Body Cosmetics","Face Blush","Face Concealers","Face Foundations/Illuminators","Face Powders","Face Primers","Facial/Body Bronzers","Lip Gloss/Balm","Lip Pencils","Lipsticks","Beauty - Multi-Use/Sets","Nail Polish","Nail Polish Removers"],"HouseHold":["Air Fresheners","Cleaning - All Bathroom","Cleaning - Appliances","Cleaning - Bleach","Cleaning - Carpets/Upholstery","Cleaning - Drains","Cleaning - Floors","Cleaning - Glass & Windows","Cleaning - Household Wipes","Cleaning - Kitchen","Cleaning - Metal","Cleaning - Multi-Purpose","Cleaning - Toilet","Descaler & Limescale Removal","Furniture Polish & Wipes","Mould & Mildew Remover","Toilet Fresheners","Dish Washing Up","Dishwasher Care","Dishwasher Liquid/Tablets","Fabric Fresheners","Ironing Needs","Laundry Conditioners/Softeners","Laundry Detergent - Liquid Gel","Laundry Detergent - Liquitabs, Capsules & Tablets","Laundry Detergent - Powder & Bars","Stain Removers & Whiteners","Washing Machine Cleaning Products","Cotton Buds","Cotton Wool","Facial Tissues","Kitchen Paper","Toilet Roll"],"Personal Care":["Baby Diaper Cream","Baby Diapers & Sheet Covers","Baby Wipes","Body Care Multi-Use/Sets","Body Lotions/Moisturizers/Oils","Body Mists","Body Powder","Body Treatments","Deodorant Cream","Deodorant Powder","Deodorant Roll-On","Deodorant Solids/Sticks","Deodorant Spray","Fragrances for Men","Fragrances for Women","Fragrances Unisex","Beard Care","Hair Coloring","Conditioner","Hair Care Multi-Use/Sets","Hair-Treatments","Shampoo","Shampoo & Conditioner (2 in 1)","Hair Styling","Bath & Shower Treatments","Bath Products","Hand Soap & Sanitizers","Shower Products","Soap Bars","Body Wipes","Incontinence","Intimate Care","Pads & Tampons","Hand & Foot Care","Hand & Nail Care","Multi-Purpose Sets","Carrier Oils","Essential Oils/Blends","Massage Oils","Mouthwash","Oral Care - Other","Toothpaste","Depilatory","Shaving","After Shave","Eye Cleansers","Eye Treatments","Face/Neck Oils","Facial Treatments","Facial/Neck - Moisturizers","Facial/Neck Cleansers","Facial/Neck Essence/Mists","Facial/Neck Exfoliators","Facial/Neck Masks","Facial/Neck Serums","Facial/Neck Toners","Lip Treatments","Makeup Remover","Skin Care Multi-Use/Sets","After Sun","Self Tanning & Bronzers","Sun Protection"]},"pos":["Age: Babies & Toddlers (0-4).","Age: Children (5-12 years).","Age: Seniors (55+).","Age: Teenagers (13-17).","Branding: Celebrity Endorsed.","Branding: Doctor Branded.","Choice: Halal.","Choice: Kosher.","Choice: Natural.","Choice: Organic.","Choice: Palm Oil Free.","Choice: Plant Based.","Choice: Vegan.","Choice: Vegetarian.","Co-Branding.","Cosmetics - Mattifying.","Cosmetics - Traceless.","Ethical - Animal/Fish & Bird.","Ethical - Environment.","Ethical - Human.","Ethical - Microplastics Free.","Ethical - Not Specific.","Ethical - Packaging.","Refill/Reuse.","Sustainability - Compostable.","Sustainability - Post Consumer Plastic.","Sustainability - Reef/Ocean Friendly.","Sustainable.","Alcohol Free.","Aluminum Free.","Ammonia Free.","BPA Free.","Dye Free.","Fragrance Free.","Gluten Free.","GMO Free.","Mercury Free.","Metal Free.","Metal Tested.","Microbead Free.","Mineral Oil Free.","Nickel Free.","No Added Fragrance.","No Additives/Preservatives.","No Animal Ingredients.","No Animal Tested.","No Perfume.","Oil Free.","Paraben Free.","Pesticides Free.","Petrolatum Free.","Phosphate Free.","Phthalate Free.","Silicon Free.","SLES Free.","SLS Free.","Soap Free.","Soy Free.","Sulfate Free.","Talc Free.","Toxin Free.","Wax Free.","Gender: Male.","Hair Condition - Alopecia.","Hair Condition - Anti-Dandruff.","Hair Condition - Anti-Hair Loss.","Hair Condition - Colored Hair.","Hair Condition - Damaged.","Hair Condition - Dry.","Hair Condition - Oily.","Hair Condition - Scalp Care.","Hair Texture - Coarse.","Hair Texture - Fine.","Hair Texture - Medium.","Hair Texture - Thick/Full.","Hair Type - African/American.","Hair Type - Curly.","Hair Type - Mature.","Hair Type - Straight.","Hair Type - Wavy.","Hygiene: Anti-Bacterial.","Hygiene: Anti-Perspirant.","Nail Support.","Limited Edition.","Seasonal – Christmas.","Seasonal – Other.","Skin Health: Anti-Acne.","Skin Health: Anti-Aging (not specific).","Skin Health: Anti-Pollution.","Skin Health: Antioxidant.","Skin Health: Brightening/Illuminating.","Skin Health: Collagen Support/Increase.","Skin Health: Exfoliating.","Skin Health: Firming.","Skin Health: Longevity.","Skin Health: Microbiome.","Skin Health: Non - Comedogenic.","Skin Health: Plumping.","Skin Health: Purifying.","Skin Health: Reduces Dark Circles/Puffiness.","Skin Health: Reduces Fine Lines/Wrinkles.","Skin Health: Reduces Redness.","Skin Health: Reduces the Appearance of Pores.","Skin Health: Sensitive Skin Tested.","Skin Health: Skin Disorders.","Skin Health: UV Protection.","Skin Health: Whitening.","Skin Type: Combination Skin.","Skin Type: Dry Skin.","Skin Type: Normal Skin.","Skin Type: Oily Skin.","Skin Type: Sensitive Skin.","Weight Management: Anti-Cellulite.","Weight Management: Toning.","Weight Management: Other.","Adaptogens.","AI.","Allergy Tested.","Aromatherapy.","Biodegradable Ingredients.","Botanical/Herbal.","CBD.","Dermatologically Tested.","Fast Absorbing.","Homeopathic.","Household - Odor Eliminating.","Household - Whitening.","Hydration Support/Increase.","Hypoallergenic.","Indulgent & Premium.","Long Lasting.","Non - Acnegenic.","Ophthalmologically Tested.","pH Neutral.","Postbiotics.","Prebiotics.","Probiotics.","Quick Wash.","TCM.","Water Resistant.","Waterproof."],"ev":["New Package","New Product","Reformulation"],"pt":["Alternapak","Ampoule","Bag-in-box","Blister","bottle","bottle - spray","bottle with applicator","bucket","can","can - Aerosol","capsule","clay pot","compact","cup","flat pouch","flexible","folded box","gable - top","inverted pouch","jar","miscellaneous/product shape","open bag","palette","pincel","pot","pump bottle","pannet","retort pouch","roll on","sachet","skin pack","sleeve","spouted pouch","standerd tray","standing pouch","tetra brik","tetra classic aseptic","tetra evero aseptic","tetra fino aseptic","tetra gemina aseptic","tetra pak","tetra pouch","tetra stelo aseptic","tetra top","tetra wedge","tetra wedge aseptic","three or four side sealed pouch","tin","topper","toy","tub","travel kit","tube - rigid","tube - squeezable","tube with applicator","vacuum pouch","wrapper"],"pm":["Aluminium","biobased","cardboard","glass","metal","others","plastic - HDPE(2)","plastic - LDPE(4)","plastic - Others(7)","plastic - not specified","plastic - PET(1)","plastic - PP(5)","plastic - PS(6)","plastic - V(3)"]};
-
-const COUNTRIES = ["Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic","Denmark","Djibouti","Dominica","Dominican Republic","East Timor","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Ivory Coast","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kosovo","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"];
-
-const MAX_DIM = 1568; // Claude recommended max - keeps fine print readable
-
-// Read file as dataURL - works in all sandboxed environments
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = () => reject(new Error("Failed to read file"));
-    r.readAsDataURL(file);
-  });
-}
-
-// Compress image using dataURL (not objectURL) - sandbox safe
-function compressForAPI(dataURL) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      let w = img.naturalWidth, h = img.naturalHeight;
-      if (w > MAX_DIM || h > MAX_DIM) {
-        const r = Math.min(MAX_DIM / w, MAX_DIM / h);
-        w = Math.round(w * r);
-        h = Math.round(h * r);
-      }
-      const c = document.createElement("canvas");
-      c.width = w; c.height = h;
-      const ctx = c.getContext("2d");
-      // Use high-quality image rendering for text clarity
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, 0, 0, w, h);
-
-      // Higher quality to keep fine print readable for AI
-      let q = 0.85;
-      const go = () => {
-        const result = c.toDataURL("image/jpeg", q);
-        const b64 = result.split(",")[1];
-        const byteSize = Math.ceil(b64.length * 3 / 4);
-        if (byteSize > 4.5 * 1024 * 1024 && q > 0.25) {
-          q -= 0.1;
-          go();
-        } else {
-          resolve({ base64: b64, byteSize });
-        }
-      };
-      go();
-    };
-    img.onerror = () => reject(new Error("Could not decode image"));
-    img.src = dataURL;
-  });
-}
-
-function buildPrompt(country) {
-  let c = "";
-  for (const [t, list] of Object.entries(DD.cats)) c += "\n  " + t + ":\n" + list.map(x => "    - " + x).join("\n") + "\n";
-  return `You are an expert product data analyst with years of experience in FMCG/CPG product cataloging. You must extract data with extreme precision from product packaging images.
-
-CONTEXT: This product is from ${country}. The packaging text is in the official language of ${country}.
-
-CRITICAL INSTRUCTIONS FOR ACCURATE EXTRACTION:
-================================================
-
-STEP 1 - SCAN ALL IMAGES FIRST:
-Before filling ANY field, carefully examine EVERY image provided. Different images show different sides:
-- FRONT: Usually has brand, product name, quantity, key claims
-- BACK: Usually has ingredients, directions, manufacturer info, barcode, detailed address, composition
-- SIDES/TOP/BOTTOM: May have barcode, batch/lot numbers, weight, additional info, expiry dates, websites
-- Do NOT skip any image. Cross-reference information across ALL images.
-
-STEP 2 - EXTRACT TEXT PRECISELY:
-- Read text EXACTLY as printed. Do NOT guess or approximate.
-- For barcodes: read the EXACT numbers printed below the barcode lines. Include ALL digits.
-- For weights: include the unit (g, ml, oz, etc.) exactly as shown.
-- For addresses: read EVERY part carefully — street number, street name, district, city, state, postal code, country.
-- For company names: read the FULL legal name as printed (e.g., "Procter & Gamble do Brasil Ltda." not just "P&G").
-
-STEP 3 - TRANSLATE TO ENGLISH:
-- ALL output text must be in English EXCEPT the first part of product_name (before the colon).
-- Translate directions, claims, ingredients, descriptions, notes word-by-word accurately.
-- Do NOT paraphrase or summarize — translate the actual text from the packaging.
-
-STEP 4 - MATCH DROPDOWNS CAREFULLY:
-- For each dropdown field, read the FULL list of options before choosing.
-- Pick the CLOSEST match. If unsure between two, pick the more specific one.
-- For "positioning": select ALL that apply based on actual claims/features visible on the packaging.
-
-FIELD-BY-FIELD EXTRACTION GUIDE:
-=================================
-
-"type": Look at the product category. Choose from: ${JSON.stringify(DD.types)}
-  - Beauty = cosmetics, makeup
-  - HouseHold = cleaning, laundry, paper products, air fresheners
-  - Personal Care = body care, hair care, shaving, oral care, skin care, deodorant, baby care, fragrances
-
-"category": Based on your chosen type, pick from:${c}
-
-"product_brand": The MAIN brand name as displayed prominently on the front of the package (e.g., "Gillette", "Dove", "Tide"). Just the brand, not the sub-brand.
-
-"product_name": FORMAT = "[Full product name in original ${country} language exactly as on package] : [English translation of the full product name and variant]"
-  - Include the brand + product line + variant (e.g., "Gillette Mach3 Sensitive Repuestos para Afeitar : Gillette Mach3 Sensitive Shaving Refills")
-  - The original language part must match EXACTLY what is printed on the package.
-
-"directions": Translate the usage instructions/directions from the packaging to English. Look on the back panel. Copy ALL directions, not just a summary.
-
-"positioning": Choose ALL applicable from the positioning list. Look for:
-  - "For sensitive skin" = Skin Type: Sensitive Skin
-  - "For men" = Gender: Male
-  - "Dermatologically tested" = Dermatologically Tested
-  - "Hypoallergenic" = Hypoallergenic
-  - "With Aloe" = Botanical/Herbal
-  - "Long lasting" = Long Lasting
-  - Check for age claims, free-from claims (paraben free, etc.), certifications, etc.
-
-"claims": Translate ALL marketing claims and feature callouts visible on the packaging to English. These are usually on the front/back as bullet points or highlighted text (e.g., "Sharper blades", "Extra lubricating strip with Aloe", "Up to 80 uses").
-
-"extra_notes": Any additional info visible that does not fit other fields. Include dates visible (manufacturing date, expiry), batch/lot numbers, special markings, certification logos.
-
-"local_price_estimate": Estimate the typical retail price for this specific product in ${country}, using ${country}'s local currency with the currency symbol (e.g., "R$ 89.90" for Brazil, "SAR 45" for Saudi Arabia).
-
-"local_price_country": "${country}"
-
-"inner_packaging_type": What physically holds/contains the product? Look at the actual product inside. Choose from the packaging type list.
-
-"inner_packaging_material": What is the inner packaging made of? Look for recycling symbols, material indicators on the packaging. Choose from the material list.
-
-"individual_pack_weight": Weight or volume of ONE individual item. Look for "net weight", "net wt", "conteudo", "contenido" etc.
-
-"quantity_per_pack": How many individual items in this pack? Look for numbers like "4 units", "x4", "4 refills", etc.
-
-"whole_pack_weight": Total weight of the entire package. If not explicitly stated, note "Not found in images".
-
-"product_description": Write a comprehensive English description (2-3 sentences) based on ALL visible information. Include: what the product is, key features, who it's for, any standout benefits.
-
-"ingredients": Look on the back panel for "Ingredients:", "Composition:", "INCI:", "Composicao:", "Ingredientes:" etc. Transcribe the COMPLETE list exactly as printed (ingredient names are usually in standard form). If no ingredient list is visible, write "Not found in images".
-
-"barcode": Read the EXACT numbers printed below the barcode. Include ALL digits, no spaces. Look on back, bottom, or sides. EAN-13 barcodes have 13 digits. UPC-A have 12 digits.
-
-"company": The parent/holding company (e.g., "Procter & Gamble", "Unilever", "L'Oreal").
-
-"manufactured_by": The FULL legal manufacturer name as printed on the packaging (e.g., "Procter & Gamble do Brasil Ltda."). Look for "Manufactured by", "Fabricado por", "Fabricante", "Mfg by".
-
-"produced_in": Country where the product was made. Look for "Made in", "Produced in", "Fabricado em/en", "Hecho en", "Produzido em". Read the EXACT country stated.
-
-"company_address": Parse the manufacturer address into components. Look for the FULL address printed on the back. Read CAREFULLY:
-  - house_number: the building/street number
-  - street_name: full street name (e.g., "Rua Min. Joao Goncalves de Araujo")
-  - city: city name (e.g., "Manaus")
-  - state_region: state or region (e.g., "AM" or "Amazonas")
-  - postal_code: ZIP/postal code (e.g., "69075-840")
-  - website: any website URL visible (e.g., "www.pg.com", "www.gillette.com")
-
-"network_member_comments": Note anything unusual, interesting, or that doesn't fit other fields. Include: multi-language packaging details, promotional offers visible ("Pague Menos Lleve Mas"), QR codes present, recycling info, any warnings translated to English.
-
-DROPDOWNS REFERENCE:
-====================
-POSITIONING OPTIONS: ${JSON.stringify(DD.pos)}
-INNER PACKAGING TYPE OPTIONS: ${JSON.stringify(DD.pt)}
-INNER PACKAGING MATERIAL OPTIONS: ${JSON.stringify(DD.pm)}
-
-OUTPUT: Return ONLY a valid JSON object. No markdown, no backticks, no explanation.
-{"type":"","category":"","product_brand":"","product_name":"","directions":"","positioning":[],"claims":"","extra_notes":"","local_price_estimate":"","local_price_country":"","inner_packaging_type":"","inner_packaging_material":"","individual_pack_weight":"","quantity_per_pack":"","whole_pack_weight":"","product_description":"","ingredients":"","barcode":"","company":"","manufactured_by":"","produced_in":"","company_address":{"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""},"network_member_comments":""}`;
-}
-
-const FIELDS = [
-  {k:"type",l:"Type",i:"🏷️",dd:"types"},{k:"category",l:"Category",i:"📂",dd:"cat"},
-  {k:"product_brand",l:"Product Brand",i:"™️"},{k:"product_name",l:"Product Name",i:"📦"},
-  {k:"directions",l:"Directions",i:"📋",ml:1},
-  {k:"positioning",l:"Positioning",i:"🎯",arr:1,dd:"pos"},
-  {k:"claims",l:"Claims",i:"✅",ml:1},{k:"extra_notes",l:"Extra Notes",i:"📝",ml:1},
-  {k:"event",l:"Event",i:"🎪",dd:"ev"},
-  {k:"local_price_estimate",l:"Local Price",i:"💰"},{k:"local_price_country",l:"Price Country",i:"🌍"},
-  {k:"inner_packaging_type",l:"Inner Packaging Type",i:"📦",dd:"pt"},
-  {k:"inner_packaging_material",l:"Inner Packaging Material",i:"🧱",dd:"pm"},
-  {k:"individual_pack_weight",l:"Individual Pack Weight",i:"⚖️"},{k:"quantity_per_pack",l:"Quantity Per Pack",i:"🔢"},
-  {k:"whole_pack_weight",l:"Whole Pack Weight",i:"📐"},
-  {k:"product_description",l:"Product Description",i:"📄",ml:1},
-  {k:"ingredients",l:"Ingredients",i:"🧪",ml:1},{k:"barcode",l:"Barcode",i:"🔖"},
-  {k:"company",l:"Company",i:"🏢"},{k:"manufactured_by",l:"Manufactured By",i:"🏭"},
-  {k:"produced_in",l:"Produced In",i:"🌐"},
-  {k:"company_address",l:"Company Address",i:"📍",addr:1},
-  {k:"network_member_comments",l:"Network's Member Comments",i:"💬",ml:1},
-];
-const ADDRF = [{k:"house_number",l:"House Number"},{k:"street_name",l:"Street Name"},{k:"city",l:"City"},{k:"state_region",l:"State/Region"},{k:"postal_code",l:"Postal Code"},{k:"website",l:"Website"}];
-
-function App() {
-  const [imgs, setImgs] = useState([]); // {name, size, dataURL}
-  const [country, setCountry] = useState("");
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [prog, setProg] = useState("");
-  const [err, setErr] = useState("");
-  const [copied, setCopied] = useState(null);
-  const [allCop, setAllCop] = useState(false);
-  const fref = useRef(null);
-
-  const fmtSz = (b) => b<1024?b+" B":b<1048576?(b/1024).toFixed(1)+" KB":(b/1048576).toFixed(1)+" MB";
-
-  const addImgs = useCallback(async (e) => {
-    const files = Array.from(e.target.files);
-    setErr("");
-    const newImgs = [];
-    for (const f of files) {
-      try {
-        const dataURL = await readFileAsDataURL(f);
-        newImgs.push({ name: f.name, size: f.size, dataURL });
-      } catch {
-        // skip unreadable files
-      }
-    }
-    setImgs(p => [...p, ...newImgs]);
-    if (fref.current) fref.current.value = "";
-  }, []);
-
-  const rmImg = (i) => setImgs(p => p.filter((_,j) => j!==i));
-
-  const extract = async () => {
-    if (!imgs.length) { setErr("Upload at least one image."); return; }
-    if (!country) { setErr("Please select the country of product."); return; }
-    setLoading(true); setErr(""); setProg(""); setData(null);
-    try {
-      const apiImgs = [];
-      for (let i = 0; i < imgs.length; i++) {
-        setProg(`Compressing ${i+1}/${imgs.length}: ${imgs[i].name}...`);
-        const comp = await compressForAPI(imgs[i].dataURL);
-        apiImgs.push({ type:"image", source:{ type:"base64", media_type:"image/jpeg", data: comp.base64 }});
-        setProg(`Compressed ${i+1}/${imgs.length}: ${fmtSz(imgs[i].size)} → ${fmtSz(comp.byteSize)}`);
-      }
-      apiImgs.push({ type:"text", text: buildPrompt(country) });
-      setProg(`🤖 Claude AI analyzing ${imgs.length} images... (30-90s)`);
-
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:8192,
-          system: "You are a world-class product data extraction specialist with expertise in reading product packaging from any country and language. You have perfect attention to detail. You MUST read every single image carefully, zoom into fine print, and extract information with 100% accuracy. Never guess — only report what you can actually read from the images. Cross-reference all images to find information. Barcodes must be exact digits. Addresses must be complete. Ingredients must be full lists. Return only valid JSON.",
-          messages:[{role:"user",content:apiImgs}]
-        }),
-      });
-      if (!res.ok) {
-        const b = await res.text();
-        let m = `API Error ${res.status}`;
-        try { m = JSON.parse(b)?.error?.message || m; } catch {}
-        throw new Error(m);
-      }
-      const j = await res.json();
-      const txt = j.content.map(c=>c.text||"").join("").replace(/```json\s*/g,"").replace(/```/g,"").trim();
-      let parsed;
-      try { parsed = JSON.parse(txt); } catch { const m = txt.match(/\{[\s\S]*\}/); if(m) parsed=JSON.parse(m[0]); else throw new Error("Could not parse AI response"); }
-      parsed.event = "";
-      setData(parsed);
-    } catch(e) { setErr(e.message); } finally { setLoading(false); setProg(""); }
-  };
-
-  const upd = (k,v) => setData(p=>({...p,[k]:v}));
-  const updA = (sk,v) => setData(p=>({...p,company_address:{...(p.company_address||{}),[sk]:v}}));
-  const togP = (o) => setData(p=>{const c=Array.isArray(p.positioning)?p.positioning:[];return{...p,positioning:c.includes(o)?c.filter(x=>x!==o):[...c,o]};});
-
-  const getDd = (f) => {
-    if(f.dd==="types") return DD.types;
-    if(f.dd==="cat") return DD.cats[data?.type]||[];
-    if(f.dd==="ev") return DD.ev;
-    if(f.dd==="pt") return DD.pt;
-    if(f.dd==="pm") return DD.pm;
-    if(f.dd==="pos") return DD.pos;
-    return [];
-  };
-
-  const cpF = (k,v) => {
-    const t = Array.isArray(v)?v.join(", "):typeof v==="object"?Object.values(v||{}).filter(Boolean).join(", "):String(v||"");
-    navigator.clipboard.writeText(t); setCopied(k); setTimeout(()=>setCopied(null),1500);
-  };
-
-  const cpAll = () => {
-    if(!data) return;
-    let t="";
-    FIELDS.forEach(f=>{
-      const v=data[f.k];
-      if(f.addr&&typeof v==="object"){t+=`${f.l}:\n`;ADDRF.forEach(a=>{t+=`  ${a.l}: ${v?.[a.k]||"N/A"}\n`;});}
-      else if(f.arr&&Array.isArray(v)) t+=`${f.l}: ${v.join(", ")}\n`;
-      else t+=`${f.l}: ${v||"N/A"}\n`;
-    });
-    navigator.clipboard.writeText(t); setAllCop(true); setTimeout(()=>setAllCop(false),2000);
-  };
-
-  const reset = () => { setImgs([]); setCountry(""); setData(null); setErr(""); setProg(""); };
-
-  const inp = {width:"100%",padding:"8px 10px",background:"#0d1117",border:"1px solid #2d3748",borderRadius:8,color:"#e2e8f0",fontSize:13,boxSizing:"border-box",fontFamily:"inherit",outline:"none"};
-  const sel = {...inp};
-
-  return (
-    <div style={{minHeight:"100vh",background:"#0a0e17",color:"#e2e8f0",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} select option{background:#0d1117;color:#e2e8f0} *::-webkit-scrollbar{width:5px;height:5px} *::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}`}</style>
-
-      {/* Header */}
-      <div style={{background:"linear-gradient(135deg,#0f172a,#1a1f3a,#0f172a)",borderBottom:"1px solid #1e293b",padding:"14px 20px"}}>
-        <div style={{maxWidth:860,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:34,height:34,borderRadius:8,background:"linear-gradient(135deg,#3b82f6,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17}}>📦</div>
-            <div>
-              <div style={{fontSize:17,fontWeight:700,color:"#f1f5f9"}}>Product Data Extractor</div>
-              <div style={{fontSize:10,color:"#64748b"}}>AI-Powered • Upload → Extract → Copy</div>
-            </div>
-          </div>
-          {data && <button onClick={reset} style={{padding:"5px 12px",background:"#1e293b",border:"1px solid #334155",borderRadius:6,color:"#94a3b8",cursor:"pointer",fontSize:12}}>↻ New Product</button>}
-        </div>
-      </div>
-
-      <div style={{maxWidth:860,margin:"0 auto",padding:"20px 14px"}}>
-
-        {/* UPLOAD */}
-        {!data && (
-          <div style={{background:"#111827",borderRadius:14,border:"1px solid #1e293b",padding:20,marginBottom:16}}>
-            <div style={{margin:"0 0 12px",fontSize:14,color:"#94a3b8",fontWeight:600}}><span style={{color:"#3b82f6"}}>01</span> Upload Product Images</div>
-
-            <div
-              onClick={()=>fref.current?.click()}
-              style={{border:"2px dashed #2d3748",borderRadius:12,padding:20,textAlign:"center",cursor:"pointer",background:"#0d1117"}}
-              onMouseOver={e=>e.currentTarget.style.borderColor="#3b82f6"}
-              onMouseOut={e=>e.currentTarget.style.borderColor="#2d3748"}
-            >
-              <input ref={fref} type="file" accept="image/*" multiple onChange={addImgs} style={{display:"none"}} />
-              {!imgs.length ? (
-                <div>
-                  <div style={{fontSize:38}}>📸</div>
-                  <div style={{color:"#94a3b8",fontSize:14,marginTop:4}}>Click to upload product photos</div>
-                  <div style={{color:"#4a5568",fontSize:11,marginTop:2}}>All angles • Large images auto-compressed</div>
-                </div>
-              ) : (
-                <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center"}}>
-                  {imgs.map((im,i) => (
-                    <div key={i} style={{position:"relative",width:108,height:108,flexShrink:0}}>
-                      <img src={im.dataURL} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:8,border:"1px solid #2d3748",display:"block",background:"#1a1a2e"}} />
-                      <button onClick={e=>{e.stopPropagation();rmImg(i);}} style={{position:"absolute",top:-6,right:-6,width:20,height:20,borderRadius:"50%",background:"#ef4444",border:"2px solid #111827",color:"#fff",cursor:"pointer",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,padding:0,lineHeight:1}}>✕</button>
-                      <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,.8)",borderRadius:"0 0 8px 8px",padding:"3px 5px"}}>
-                        <div style={{fontSize:9,color:"#d1d5db",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{im.name}</div>
-                        <div style={{fontSize:8,color:"#6b7280"}}>{fmtSz(im.size)}</div>
-                      </div>
-                    </div>
-                  ))}
-                  <div onClick={e=>{e.stopPropagation();fref.current?.click();}} style={{width:108,height:108,borderRadius:8,border:"2px dashed #2d3748",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:"#4a5568",fontSize:11,cursor:"pointer",flexShrink:0}}>
-                    <span style={{fontSize:22}}>+</span><span>Add more</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {imgs.length>0 && <div style={{margin:"6px 0 0",fontSize:10,color:"#4a5568"}}>{imgs.length} image{imgs.length>1?"s":""} • {fmtSz(imgs.reduce((s,i)=>s+i.size,0))} total • Auto-compressed before sending</div>}
-
-            {/* Country Selector */}
-            {imgs.length>0 && (
-              <div style={{marginTop:14,padding:"12px 14px",background:"#0d1117",border:"1px solid #1e293b",borderRadius:10}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                  <span style={{fontSize:16}}>🌍</span>
-                  <span style={{fontSize:13,color:"#94a3b8",fontWeight:600}}>Country of Product <span style={{color:"#ef4444"}}>*</span></span>
-                </div>
-                <select value={country} onChange={e=>{setCountry(e.target.value);setErr("");}} style={{width:"100%",padding:"10px 12px",background:"#111827",border:country?"1px solid #3b82f6":"1px solid #2d3748",borderRadius:8,color:country?"#e2e8f0":"#64748b",fontSize:14,outline:"none",cursor:"pointer"}}>
-                  <option value="">— Select country where product is from —</option>
-                  {COUNTRIES.map(c=><option key={c} value={c}>{c}</option>)}
-                </select>
-                {country && <div style={{marginTop:6,fontSize:11,color:"#4ade80"}}>✓ AI will use {country}'s language & local currency for price estimation</div>}
-              </div>
-            )}
-
-            {imgs.length>0 && (
-              <button onClick={extract} disabled={loading} style={{width:"100%",marginTop:12,padding:13,background:loading?"#1e293b":"linear-gradient(135deg,#3b82f6,#8b5cf6)",border:loading?"1px solid #334155":"none",borderRadius:10,color:loading?"#64748b":"#fff",fontSize:14,fontWeight:600,cursor:loading?"not-allowed":"pointer"}}>
-                {loading ? "⏳ "+prog : `🚀 Extract Data from ${imgs.length} Image${imgs.length>1?"s":""}`}
-              </button>
-            )}
-
-            {err && <div style={{marginTop:10,padding:"9px 12px",background:"#1c1117",border:"1px solid #7f1d1d",borderRadius:8,color:"#fca5a5",fontSize:12,wordBreak:"break-word"}}>❌ {err}</div>}
-          </div>
-        )}
-
-        {/* Loading */}
-        {loading && (
-          <div style={{textAlign:"center",padding:"28px 0"}}>
-            <div style={{display:"inline-block",width:44,height:44,borderRadius:"50%",border:"3px solid #1e293b",borderTopColor:"#3b82f6",animation:"spin 1s linear infinite"}} />
-            <div style={{color:"#94a3b8",marginTop:10,fontSize:12}}>{prog}</div>
-          </div>
-        )}
-
-        {/* RESULTS */}
-        {data && (
-          <div>
-            {imgs.length>0 && (
-              <div style={{display:"flex",gap:5,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
-                {imgs.map((im,i) => <img key={i} src={im.dataURL} alt="" style={{width:44,height:44,objectFit:"cover",borderRadius:6,border:"1px solid #2d3748",flexShrink:0}} />)}
-              </div>
-            )}
-
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <div style={{fontSize:14,color:"#94a3b8",fontWeight:600}}><span style={{color:"#3b82f6"}}>02</span> Extracted Data — Edit & Copy</div>
-              <button onClick={cpAll} style={{padding:"6px 15px",background:allCop?"#059669":"linear-gradient(135deg,#3b82f6,#8b5cf6)",border:"none",borderRadius:6,color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer"}}>
-                {allCop?"✓ Copied!":"📋 Copy All"}
-              </button>
-            </div>
-
-            <div style={{display:"flex",flexDirection:"column",gap:5}}>
-              {FIELDS.map(f => {
-                const v = data[f.k];
-                return (
-                  <div key={f.k} style={{background:"#111827",borderRadius:9,border:"1px solid #1e293b",padding:"9px 12px"}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5}}>
-                      <span style={{fontSize:10,color:"#64748b",fontWeight:600,textTransform:"uppercase",letterSpacing:.4}}>{f.i} {f.l}</span>
-                      <button onClick={()=>cpF(f.k,v)} style={{padding:"1px 9px",background:copied===f.k?"#059669":"#1e293b",border:"1px solid "+(copied===f.k?"#059669":"#334155"),borderRadius:4,color:copied===f.k?"#fff":"#94a3b8",cursor:"pointer",fontSize:10}}>
-                        {copied===f.k?"✓":"Copy"}
-                      </button>
-                    </div>
-
-                    {f.dd && !f.arr ? (
-                      <select value={v||""} onChange={e=>upd(f.k,e.target.value)} style={sel}>
-                        <option value="">— Select —</option>
-                        {getDd(f).map(o=><option key={o} value={o}>{o}</option>)}
-                      </select>
-                    ) : f.arr ? (
-                      <div>
-                        {Array.isArray(v)&&v.length>0 && (
-                          <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:5}}>
-                            {v.map((x,i)=>(
-                              <span key={i} onClick={()=>togP(x)} style={{padding:"1px 8px",background:"#1e3a5f",border:"1px solid #3b82f6",borderRadius:14,color:"#93c5fd",fontSize:10,cursor:"pointer"}}>{x} ✕</span>
-                            ))}
-                          </div>
-                        )}
-                        <select value="" onChange={e=>{if(e.target.value)togP(e.target.value);}} style={sel}>
-                          <option value="">+ Add positioning...</option>
-                          {getDd(f).filter(o=>!(Array.isArray(v)?v:[]).includes(o)).map(o=><option key={o} value={o}>{o}</option>)}
-                        </select>
-                      </div>
-                    ) : f.addr ? (
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
-                        {ADDRF.map(a=>(
-                          <div key={a.k}>
-                            <div style={{fontSize:9,color:"#4a5568",marginBottom:1}}>{a.l}</div>
-                            <input type="text" value={(v&&typeof v==="object"?v[a.k]:"")||""} onChange={e=>updA(a.k,e.target.value)} style={inp} />
-                          </div>
-                        ))}
-                      </div>
-                    ) : f.ml ? (
-                      <textarea value={v||""} onChange={e=>upd(f.k,e.target.value)} rows={3} style={{...inp,resize:"vertical"}} />
-                    ) : (
-                      <input type="text" value={v||""} onChange={e=>upd(f.k,e.target.value)} style={inp} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div style={{display:"flex",gap:8,marginTop:14,paddingBottom:30}}>
-              <button onClick={cpAll} style={{flex:1,padding:12,background:allCop?"#059669":"linear-gradient(135deg,#3b82f6,#8b5cf6)",border:"none",borderRadius:10,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>
-                {allCop?"✓ All Copied!":"📋 Copy All to Clipboard"}
-              </button>
-              <button onClick={reset} style={{padding:"12px 18px",background:"#1e293b",border:"1px solid #334155",borderRadius:10,color:"#94a3b8",fontSize:13,cursor:"pointer"}}>↻ New</button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
-// API Key wrapper component
-function AppWithAuth() {
-  const [apiKey, setApiKey] = React.useState(localStorage.getItem("pde_api_key") || "");
-  const [tempKey, setTempKey] = React.useState("");
-  const [showModal, setShowModal] = React.useState(!apiKey);
-  const [keyErr, setKeyErr] = React.useState("");
-
-  const saveKey = () => {
-    const k = tempKey.trim();
-    if (!k) { setKeyErr("Please enter your API key."); return; }
-    if (!k.startsWith("sk-ant-")) { setKeyErr("Key should start with sk-ant-"); return; }
-    localStorage.setItem("pde_api_key", k);
-    setApiKey(k);
-    setShowModal(false);
-    setKeyErr("");
-  };
-
-  const changeKey = () => {
-    setTempKey(apiKey);
-    setShowModal(true);
-  };
-
-  const logout = () => {
-    localStorage.removeItem("pde_api_key");
-    setApiKey("");
-    setTempKey("");
-    setShowModal(true);
-  };
-
-  // Patch fetch to inject API key
-  React.useEffect(() => {
-    if (!apiKey) return;
-    const origFetch = window._origFetch || window.fetch;
-    if (!window._origFetch) window._origFetch = window.fetch;
-    window.fetch = function(url, opts) {
-      if (typeof url === "string" && url.includes("api.anthropic.com")) {
-        opts = opts || {};
-        opts.headers = opts.headers || {};
-        opts.headers["x-api-key"] = apiKey;
-        opts.headers["anthropic-version"] = "2023-06-01";
-        opts.headers["anthropic-dangerous-direct-browser-access"] = "true";
-      }
-      return origFetch.call(this, url, opts);
-    };
-    return () => { window.fetch = origFetch; };
-  }, [apiKey]);
-
-  if (showModal) {
-    return (
-      <div className="api-overlay">
-        <div className="api-modal">
-          <h2>🔑 API Key Required</h2>
-          <p>Enter your Anthropic API key to use the Product Data Extractor. Your key is stored locally in your browser only — never sent anywhere except Anthropic's API.</p>
-          {apiKey && <div className="saved">✓ You have a saved key. Enter a new one to replace it.</div>}
-          {keyErr && <div className="err">❌ {keyErr}</div>}
-          <input
-            type="password"
-            placeholder="sk-ant-api03-..."
-            value={tempKey}
-            onChange={(e) => { setTempKey(e.target.value); setKeyErr(""); }}
-            onKeyDown={(e) => e.key === "Enter" && saveKey()}
-          />
-          <button onClick={saveKey} disabled={!tempKey.trim()}>
-            {apiKey ? "Update API Key" : "Save & Start"}
-          </button>
-          {apiKey && <button onClick={() => setShowModal(false)} style={{marginTop:8,background:"#1e293b",border:"1px solid #334155"}}>Cancel</button>}
-          <div className="hint">
-            Get your key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style={{color:"#3b82f6"}}>console.anthropic.com</a>
-            <br/>Cost: ~$0.05-0.15 per product extraction
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div style={{position:"fixed",top:10,right:10,zIndex:999,display:"flex",gap:6}}>
-        <button onClick={changeKey} style={{padding:"4px 10px",background:"#1e293b",border:"1px solid #334155",borderRadius:5,color:"#64748b",cursor:"pointer",fontSize:10}}>🔑 Key</button>
-        <button onClick={logout} style={{padding:"4px 10px",background:"#1e293b",border:"1px solid #334155",borderRadius:5,color:"#64748b",cursor:"pointer",fontSize:10}}>Logout</button>
-      </div>
-      <App />
-    </div>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById("root")).render(<AppWithAuth />);
-</script>
-</body>
+   <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1.0">
+      <title>Product Data Extractor v2</title>
+      <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+      <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+      <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+      <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+      <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0e17}
+         @keyframes spin{to{transform:rotate(360deg)}}select option{background:#0d1117;color:#e2e8f0}
+         .api-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+         .api-modal{background:#111827;border:1px solid #1e293b;border-radius:16px;padding:28px;max-width:440px;width:100%;color:#e2e8f0;font-family:'Segoe UI',system-ui,sans-serif}
+         .api-modal h2{font-size:18px;margin-bottom:6px;color:#f1f5f9}
+         .api-modal p{font-size:12px;color:#94a3b8;margin-bottom:16px;line-height:1.5}
+         .api-modal input{width:100%;padding:10px 12px;background:#0d1117;border:1px solid #2d3748;border-radius:8px;color:#e2e8f0;font-size:13px;outline:none;margin-bottom:10px;box-sizing:border-box}
+         .api-modal input:focus{border-color:#3b82f6}
+         .api-modal button{width:100%;padding:10px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+         .api-modal button:disabled{background:#1e293b;color:#64748b;cursor:not-allowed}
+         .api-modal .hint{font-size:10px;color:#4a5568;margin-top:8px}
+      </style>
+   </head>
+   <body>
+      <div id="root"></div>
+      <script type="text/babel">
+         const { useState, useRef, useCallback } = React;
+         
+         // ==================== BEAUTY DROPDOWNS ====================
+         const BEAUTY_DD = {"types":["Beauty","HouseHold","Personal Care"],"cats":{"Beauty":["Eye Liners & Pencils","Eye Mascaras","Eye Shadows","Eyebrow Care","Body Cosmetics","Face Blush","Face Concealers","Face Foundations/Illuminators","Face Powders","Face Primers","Facial/Body Bronzers","Lip Gloss/Balm","Lip Pencils","Lipsticks","Beauty - Multi-Use/Sets","Nail Polish","Nail Polish Removers"],"HouseHold":["Air Fresheners","Cleaning - All Bathroom","Cleaning - Appliances","Cleaning - Bleach","Cleaning - Carpets/Upholstery","Cleaning - Drains","Cleaning - Floors","Cleaning - Glass & Windows","Cleaning - Household Wipes","Cleaning - Kitchen","Cleaning - Metal","Cleaning - Multi-Purpose","Cleaning - Toilet","Descaler & Limescale Removal","Furniture Polish & Wipes","Mould & Mildew Remover","Toilet Fresheners","Dish Washing Up","Dishwasher Care","Dishwasher Liquid/Tablets","Fabric Fresheners","Ironing Needs","Laundry Conditioners/Softeners","Laundry Detergent - Liquid Gel","Laundry Detergent - Liquitabs, Capsules & Tablets","Laundry Detergent - Powder & Bars","Stain Removers & Whiteners","Washing Machine Cleaning Products","Cotton Buds","Cotton Wool","Facial Tissues","Kitchen Paper","Toilet Roll"],"Personal Care":["Baby Diaper Cream","Baby Diapers & Sheet Covers","Baby Wipes","Body Care Multi-Use/Sets","Body Lotions/Moisturizers/Oils","Body Mists","Body Powder","Body Treatments","Deodorant Cream","Deodorant Powder","Deodorant Roll-On","Deodorant Solids/Sticks","Deodorant Spray","Fragrances for Men","Fragrances for Women","Fragrances Unisex","Beard Care","Hair Coloring","Conditioner","Hair Care Multi-Use/Sets","Hair-Treatments","Shampoo","Shampoo & Conditioner (2 in 1)","Hair Styling","Bath & Shower Treatments","Bath Products","Hand Soap & Sanitizers","Shower Products","Soap Bars","Body Wipes","Incontinence","Intimate Care","Pads & Tampons","Hand & Foot Care","Hand & Nail Care","Multi-Purpose Sets","Carrier Oils","Essential Oils/Blends","Massage Oils","Mouthwash","Oral Care - Other","Toothpaste","Depilatory","Shaving","After Shave","Eye Cleansers","Eye Treatments","Face/Neck Oils","Facial Treatments","Facial/Neck - Moisturizers","Facial/Neck Cleansers","Facial/Neck Essence/Mists","Facial/Neck Exfoliators","Facial/Neck Masks","Facial/Neck Serums","Facial/Neck Toners","Lip Treatments","Makeup Remover","Skin Care Multi-Use/Sets","After Sun","Self Tanning & Bronzers","Sun Protection"]},"pos":["Age: Babies & Toddlers (0-4).","Age: Children (5-12 years).","Age: Seniors (55+).","Age: Teenagers (13-17).","Branding: Celebrity Endorsed.","Branding: Doctor Branded.","Choice: Halal.","Choice: Kosher.","Choice: Natural.","Choice: Organic.","Choice: Palm Oil Free.","Choice: Plant Based.","Choice: Vegan.","Choice: Vegetarian.","Co-Branding.","Cosmetics - Mattifying.","Cosmetics - Traceless.","Ethical - Animal/Fish & Bird.","Ethical - Environment.","Ethical - Human.","Ethical - Microplastics Free.","Ethical - Not Specific.","Ethical - Packaging.","Refill/Reuse.","Sustainability - Compostable.","Sustainability - Post Consumer Plastic.","Sustainability - Reef/Ocean Friendly.","Sustainable.","Alcohol Free.","Aluminum Free.","Ammonia Free.","BPA Free.","Dye Free.","Fragrance Free.","Gluten Free.","GMO Free.","Mercury Free.","Metal Free.","Metal Tested.","Microbead Free.","Mineral Oil Free.","Nickel Free.","No Added Fragrance.","No Additives/Preservatives.","No Animal Ingredients.","No Animal Tested.","No Perfume.","Oil Free.","Paraben Free.","Pesticides Free.","Petrolatum Free.","Phosphate Free.","Phthalate Free.","Silicon Free.","SLES Free.","SLS Free.","Soap Free.","Soy Free.","Sulfate Free.","Talc Free.","Toxin Free.","Wax Free.","Gender: Male.","Hygiene: Anti-Bacterial.","Hygiene: Anti-Perspirant.","Dermatologically Tested.","Hypoallergenic.","Long Lasting.","Botanical/Herbal.","Skin Type: Sensitive Skin.","Waterproof."],"ev":["New Package","New Product","Reformulation"],"pt":["Alternapak","Ampoule","Bag-in-box","Blister","bottle","bottle - spray","bottle with applicator","bucket","can","can - Aerosol","capsule","clay pot","compact","cup","flat pouch","flexible","folded box","gable - top","inverted pouch","jar","miscellaneous/product shape","open bag","palette","pincel","pot","pump bottle","pannet","retort pouch","roll on","sachet","skin pack","sleeve","spouted pouch","standerd tray","standing pouch","tetra brik","tetra classic aseptic","tetra evero aseptic","tetra fino aseptic","tetra gemina aseptic","tetra pak","tetra pouch","tetra stelo aseptic","tetra top","tetra wedge","tetra wedge aseptic","three or four side sealed pouch","tin","topper","toy","tub","travel kit","tube - rigid","tube - squeezable","tube with applicator","vacuum pouch","wrapper"],"pm":["Aluminium","biobased","cardboard","glass","metal","others","plastic - HDPE(2)","plastic - LDPE(4)","plastic - Others(7)","plastic - not specified","plastic - PET(1)","plastic - PP(5)","plastic - PS(6)","plastic - V(3)"]};
+         
+         // ==================== FOOD DROPDOWNS ====================
+         const FOOD_DD = {"categories":["Alcoholic Beverages - Beer","Alcoholic Beverages - Brandy","Alcoholic Beverages - Cider","Alcoholic Beverages - Dark Rum","Alcoholic Beverages - Flavored Alcoholic Beverages","Alcoholic Beverages - Fortified & Other Wines","Alcoholic Beverages - Gin","Alcoholic Beverages - Hard Seltzers","Alcoholic Beverages - Liqueur","Alcoholic Beverages - Other Spirits","Alcoholic Beverages - Tequila","Alcoholic Beverages - Vodka","Alcoholic Beverages - Whiskey","Alcoholic Beverages - White Rum","Alcoholic Beverages - Wine","Baby & Toddlers - Baby Cereals & Biscuits","Baby & Toddlers - Baby Drinks","Baby & Toddlers - Baby Formula/Milk","Baby & Toddlers - Baby Fruit Products Desserts & Yogurts","Baby & Toddlers - Baby Meals","Baby & Toddlers - Baby Snacks","Baby & Toddlers - Other Baby Food","Bakery - Baking Ingredients & Mixes","Bakery - Bread & Bread Products","Bakery - Cakes - Pastries & Sweet Goods","Bakery - Savory Biscuits/Crackers","Bakery - Sweet Biscuits/Cookies","Cereals - Cold Cereal","Cereals - Hot Cereal","Clinical Nutrition - Oral Feeding","Clinical Nutrition - Tube Feeding Formulas","Confectionery - Chocolate Bars","Confectionery - Chocolate Blocks","Confectionery - Chocolate Pieces - Unwrapped","Confectionery - Chocolate Pieces - Wrapped","Confectionery - Fruit Flavored Snacks","Confectionery - Gum","Confectionery - Gummies/Jellies","Confectionery - Hard Candy","Confectionery - Licorice","Confectionery - Lollipop","Confectionery - Marshmallow","Confectionery - Medicated Confectionery","Confectionery - Mints","Confectionery - Mixed Assortments","Confectionery - Other Chocolate Confectionery","Confectionery - Other Sugar Confectionery","Confectionery - Toffee & Fudge","Cooking Sauces & Seasonings - Cooking Sauces","Cooking Sauces & Seasonings - Marinades & Pastes","Cooking Sauces & Seasonings - Oils","Cooking Sauces & Seasonings - Pasta Sauces","Cooking Sauces & Seasonings - Pickled Condiments/Chutney","Cooking Sauces & Seasonings - Seasonings","Cooking Sauces & Seasonings - Stocks","Cooking Sauces & Seasonings - Vinegar","Dairy - Butter","Dairy - Cheese - Fresh & Cream","Dairy - Cheese - Non-Dairy","Dairy - Cheese - Processed Cheese","Dairy - Cheese - Semi-Hard & Hard","Dairy - Cheese - Soft & Semi-Soft","Dairy - Cheese - Soft Cheese Desserts","Dairy - Cream","Dairy - Creamers","Dairy - Dairy Alternative Drinks","Dairy - Drinking Yogurt/Fermented Beverages","Dairy - Evaporated Milk","Dairy - Flavored Milk","Dairy - Margarine & Other Blends","Dairy - Other Dairy Products","Dairy - Shortening & Lard","Dairy - Spoonable Dairy Yogurt","Dairy - Spoonable Non-Dairy Yogurt","Dairy - Sweetened Condensed Milk","Dairy - Unflavored Milk","Desserts & Ice Cream - Ambient Desserts","Desserts & Ice Cream - Chilled Desserts","Desserts & Ice Cream - Dairy Based Ice Cream & Frozen Yogurt","Desserts & Ice Cream - Frozen Desserts","Desserts & Ice Cream - Non-Dairy Ice Cream & Frozen Yogurt","Desserts & Ice Cream - Toppings","Desserts & Ice Cream - Water Based Ice Lollies, Pop & Sorbet","Fruit & Vegetables - Fruit","Fruit & Vegetables - Fruit Pouches","Fruit & Vegetables - Vegetables","Hot Drinks - Coffee","Hot Drinks - Malt & Other Hot Beverages","Hot Drinks - Tea","Meat Substitutes - Blocks, Cubes & Chunks Substitutes","Meat Substitutes - Burgers, Ground Meat & Meatballs Substitutes","Meat Substitutes - Deli Substitutes","Meat Substitutes - Fish & Seafood Substitutes","Meat Substitutes - Other Meat Substitutes","Meat Substitutes - Other Soy/Tofu Products","Meat Substitutes - Poultry Substitutes","Meat Substitutes - Red Meat & Pork Substitutes","Meat Substitutes - Sausages Substitutes","Meat Substitutes - Vegetable & Grain/Cereal Based Alternatives","Meat, Fish & Eggs - Deli Meat","Meat, Fish & Eggs - Egg & Egg Products","Meat, Fish & Eggs - Fish & Seafood","Meat, Fish & Eggs - Meat Products","Meat, Fish & Eggs - Poultry","Pet Food - Cat & Dog Supplements","Pet Food - Cat Food - Dry","Pet Food - Cat Food - Wet","Pet Food - Cat Snacks/Treats","Pet Food - Dog Food - Dry","Pet Food - Dog Food - Wet","Pet Food - Dog Snacks/Treats","Pet Food - Other Pet Food","Ready Meals & Side Dishes - Instant Noodles","Ready Meals & Side Dishes - Instant Pasta","Ready Meals & Side Dishes - Main Dishes","Ready Meals & Side Dishes - Meal Kits","Ready Meals & Side Dishes - Other Meal Components","Ready Meals & Side Dishes - Pizza","Ready Meals & Side Dishes - Plain Noodles","Ready Meals & Side Dishes - Plain Pasta","Ready Meals & Side Dishes - Potato Products","Ready Meals & Side Dishes - Prepared Pasta & Noodles","Ready Meals & Side Dishes - Prepared Salads","Ready Meals & Side Dishes - Ready Meals","Ready Meals & Side Dishes - Rice","Ready Meals & Side Dishes - Sandwiches","Snacks - Bean Based Snacks","Snacks - Cassava and Other Root Based Snacks","Snacks - Corn Based Snacks","Snacks - Finger Foods/Hors d'oeuvres","Snacks - Fruit Based Snacks","Snacks - Meat Snacks","Snacks - Other Snacks","Snacks - Popcorn","Snacks - Potato Based Snacks","Snacks - Rice Based Snacks","Snacks - Snack Mixes","Snacks - Snack Nuts & Seeds","Snacks - Vegetable Based Snacks","Snacks - Wheat and Other Grain Based Snacks","Soft Drinks - Bottled Water - Flavored","Soft Drinks - Bottled Water - Unflavored","Soft Drinks - Carbonates","Soft Drinks - Drink Concentrates & Mixes","Soft Drinks - Energy Drinks","Soft Drinks - Fruit/Flavored Still Drinks","Soft Drinks - Iced Coffee","Soft Drinks - Iced Tea","Soft Drinks - Juices & Nectars","Soft Drinks - Meal Replacements & Other Drinks","Soft Drinks - Other Soft Drinks","Soft Drinks - Plant Based Waters","Soup - Dry Soup","Soup - Wet Soup","Sports Nutrition - Sports Bars","Sports Nutrition - Sports Drinks RTD","Sports Nutrition - Sports Others","Sports Nutrition - Sports Powders","Sports Nutrition - Sports Protein Based RTD","Sports Nutrition - Sports Supplements","Spreads - Caramel & Cream Spreads","Spreads - Chocolate Spreads","Spreads - Confiture & Fruit Spreads","Spreads - Dips","Spreads - Honey","Spreads - Meat Pastes and Pates","Spreads - Nut Spreads","Spreads - Sandwich Fillers/Spreads","Spreads - Savory Vegetable Pastes/Spreads","Spreads - Syrups","Spreads - Yeast Extracts","Sugar & Sweeteners - Sugar & Sweeteners","Supplements - Amino Acids","Supplements - Antioxidants","Supplements - Aromatherapy","Supplements - Botanical/Herbal Supplements","Supplements - Children","Supplements - Coenzyme Q10","Supplements - Concentrates","Supplements - Dietary Fiber","Supplements - Enzymes Coenzymes Isoflavones","Supplements - Essential Fatty Acids","Supplements - Fruit & Vegetable Concentrates","Supplements - Glucosamine","Supplements - Hair Skin & Nails","Supplements - Homeopathic Treatments","Supplements - Hormone","Supplements - Marine","Supplements - Meal Replacements","Supplements - Melatonin","Supplements - Men Specialty","Supplements - Miscellaneous Softgels Capsules Tablets Powders","Supplements - Probiotics","Supplements - SaMe","Supplements - Shark Cartilage","Supplements - Vitamins/Minerals","Supplements - Weight Gain","Supplements - Weight Loss","Supplements - Women Specialty","Table Sauces & Dressings - Barbecue","Table Sauces & Dressings - Dressings","Table Sauces & Dressings - Hot Sauces","Table Sauces & Dressings - Ketchup","Table Sauces & Dressings - Mayonnaise","Table Sauces & Dressings - Mustard","Table Sauces & Dressings - Table Sauces"],"positioning":["Age: Baby Formula (0-6 months)","Age: Baby Formula (6-12 months)","Age: Children (5-12 years)","Age: Growing-Up Milk (3+)","Age: Growing-Up Milk / YCF (1-3 years)","Age: Pregnancy/Breastfeeding","Age: Seniors (55+)","Choice: GMO Free","Choice: Halal","Choice: Kosher","Choice: Low Alcohol","Choice: No Alcohol","Choice: No Seed Oil","Choice: Palm Oil Free","Choice: Plant Based","Choice: TCM","Choice: Vegan","Choice: Vegetarian","Co-Branding: Co-Branding","Convenience: Air fryer","Convenience: Convenience - Consumption","Convenience: Convenience - Easy-to-Prepare","Convenience: Convenience - Packaging","Convenience: Convenience - Ready Prepared","Convenience: Convenience - Time Saving","Convenience: Microwaveable","Ethical & Sustainability: BAP","Ethical & Sustainability: Compostable","Ethical & Sustainability: Ethical - Animal/Fish & Bird","Ethical & Sustainability: Ethical - Environment","Ethical & Sustainability: Ethical - Human","Ethical & Sustainability: Ethical - Not Specific","Ethical & Sustainability: Ethical - Packaging","Ethical & Sustainability: Sustainability - Post Consumer Plastic","Ethical & Sustainability: Sustainability - Red Tractor","Ethical & Sustainability: Sustainable","Gender: Female","Gender: Male","Health (Active): Added Calcium","Health (Active): Added Iron","Health (Active): Anti-Aging/Aging-Well","Health (Active): Bone Health","Health (Active): Brain Health","Health (Active): CBD","Health (Active): DHA","Health (Active): Digestive/Gut Health","Health (Active): Energy/Alertness","Health (Active): Eye Health","Health (Active): GLP-1 Friendly","Health (Active): Hair Support","Health (Active): Heart Health","Health (Active): Immune Health","Health (Active): Joint Health","Health (Active): Omega-3","Health (Active): Oral Health","Health (Active): Postbiotics","Health (Active): Prebiotic","Health (Active): Probiotic","Health (Active): Skin Health","Health (Active): Sports","Health (Active): Vitamin/Mineral Fortified","Health (Active): Weight Management","Health (Passive): Adaptogens","Health (Passive): Antioxidant","Health (Passive): BPA Free","Health (Passive): Diabetic","Health (Passive): FODMAP","Health (Passive): Gluten Free","Health (Passive): Glyphosate Free","Health (Passive): Grain free","Health (Passive): HFCS Free","Health (Passive): High/Source of Fiber","Health (Passive): High/Source of Protein","Health (Passive): Hydration Support/Increase","Health (Passive): Lactose Free","Health (Passive): Low Sugar","Health (Passive): Low/No/Reduced Calorie","Health (Passive): Low/No/Reduced Carb","Health (Passive): Low/No/Reduced Cholesterol","Health (Passive): Low/No/Reduced Fat","Health (Passive): Low/No/Reduced GI","Health (Passive): Low/No/Reduced Sodium","Health (Passive): Mercury Free","Health (Passive): Metal Free","Health (Passive): Metal Tested","Health (Passive): Microbiome","Health (Passive): Natural","Health (Passive): No Added Sugar","Health (Passive): No Additives/Preservatives","Health (Passive): No Trans Fats","Health (Passive): Organic","Health (Passive): Pesticides Free","Health (Passive): PFAS Free","Health (Passive): Reduced Sugar","Health (Passive): Soy Free","Health (Passive): Sugar Free","Health (Passive): Toxin Free","Health (Passive): Whey Free","Health (Passive): Wholegrain","Juice: 100% Frozen","Juice: 100% Not from Concentrate","Juice: 100% Reconstituted","Juice: Juice Drinks (up to 23% Juice)","Juice: Nectars (24-99% Juice)","Others: AI","Others: Dry","Others: Economy","Pleasure: Indulgent & Premium","Pleasure: Traditional","Seasonal/Limited Edition: Limited Edition","Seasonal/Limited Edition: Seasonal - Christmas","Seasonal/Limited Edition: Seasonal - Easter","Seasonal/Limited Edition: Seasonal - Halloween","Seasonal/Limited Edition: Seasonal - Other","Seasonal/Limited Edition: Seasonal - Valentines"],"pkg_type":["Alternapak","Bag-in-Box","Barrel/Keg","Blister","Bottle","Bottle - Spray","Brick Liquid","Bucket","Can","Can - Aerosol","Capsule","Chub Packet","CombiblocXSlim","Cup","Elopak","Evergreen","Flat Pouch","Folded Box","GA Brik Aseptic Base","GA Brik Aseptic Slim","Gable-Top","Hinged Tray","Inverted Pouch","Italpack","Jar","Jug","Mesh Bag","Mill","Miscellaneous/Product Shape","Open Bag","Popping Bag","Pot","Punnet","Retort Pouch","SIG CombiDome","SIG CombiSafe (food)","SIG CombiShape","SIG CombiStyle","SIG Combibloc Compact","SIG Combibloc EcoPlus","SIG Combibloc Magnum","SIG Combibloc Maxi","SIG Combibloc Midi","SIG Combibloc Mini","SIG Combibloc Premium","SIG Combibloc Slimline","SIG Combibloc Small","SIG Combibloc Standard","SIG Combifit Magnum","SIG Combifit Midi","SIG Combifit Mini","SIG Combifit Premium","SIG Combifit Small","SIG Combismile","Sachet","Sack","Skin Pack","Sleeve","Spouted Pouch","Standard Tray","Standing Pouch","Tea Bags/Coffee Pods","Tetra Brik","Tetra Brik Aseptic","Tetra Brik Edge Aseptic","Tetra Classic Aseptic","Tetra Evero Aseptic","Tetra Fino Aseptic","Tetra Gemina Aseptic","Tetra Prisma Aseptic","Tetra Recart","Tetra Rex","Tetra Stelo Aseptic","Tetra Top","Tetra Wedge Aseptic","Three or four side sealed Pouch","Tin","Topper","Toy","Tub","Tube - Rigid","Tube - Squeezable","Vacuum Pouch","Valve Pouch","Wrapper"],"pkg_filters":["General - Recloseable","Packaging Machine - Flowrap","Packaging Machine - MAP","Packaging Machine - No Seal","Packaging Machine - Thermoformer","Packaging Machine - Traysealer","Packaging Machine - Vacuum","Preparation - Microwavable","Preparation - Ovenable","Shape - Compartments","Shape - Flexible","Shape - Gable Top","Shape - Multipack","Shape - Rigid","Shape - Side Handle","Shape - Top Handle"],"closure":["SIG CombiCap","SIG CombiGo Big","SIG CombiGo Small","SIG CombiLift","SIG CombiMaxx","SIG CombiSmart","SIG CombiSwift","SIG CombiTop","SIG CombiTwist","SIG DomeTwist","Sig/Tetra Perforation","Sig/Tetra Straw","Tetra - Others","Tetra Easy Opening","Tetra Flipcap","Tetra PullTab","Tetra ScrewCap - DreamCap 26","Tetra ScrewCap - HeliCap 23","Tetra ScrewCap - HeliCap 27","Tetra ScrewCap - LightCap 24","Tetra ScrewCap - LightCap 30","Tetra ScrewCap - Others"],"agri":["EU Agriculture","EU/Non-EU Agriculture","Non-EU Agriculture"],"pm":["Aluminium","biobased","cardboard","glass","metal","others","plastic - HDPE(2)","plastic - LDPE(4)","plastic - Others(7)","plastic - not specified","plastic - PET(1)","plastic - PP(5)","plastic - PS(6)","plastic - V(3)"]};
+         
+         const EVENTS = ["New Package","New Product","Reformulation"];
+         
+         const COUNTRIES=["Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cambodia","Cameroon","Canada","Chad","Chile","China","Colombia","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic","Denmark","Dominican Republic","Ecuador","Egypt","El Salvador","Estonia","Ethiopia","Fiji","Finland","France","Gabon","Georgia","Germany","Ghana","Greece","Guatemala","Guinea","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Liberia","Libya","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Mauritania","Mauritius","Mexico","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Macedonia","Norway","Oman","Pakistan","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saudi Arabia","Senegal","Serbia","Sierra Leone","Singapore","Slovakia","Slovenia","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"];
+         
+         const MAX_DIM=1568;
+         function readFile(f){return new Promise((r,j)=>{const R=new FileReader();R.onload=()=>r(R.result);R.onerror=()=>j(Error("Read failed"));R.readAsDataURL(f)})}
+         function compress(d){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{let w=img.naturalWidth,h=img.naturalHeight;if(w>MAX_DIM||h>MAX_DIM){const r=Math.min(MAX_DIM/w,MAX_DIM/h);w=Math.round(w*r);h=Math.round(h*r)}const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.imageSmoothingEnabled=true;x.imageSmoothingQuality="high";x.drawImage(img,0,0,w,h);let q=0.85;const go=()=>{const r=c.toDataURL("image/jpeg",q);const b=r.split(",")[1];const s=Math.ceil(b.length*3/4);if(s>4500000&&q>0.25){q-=0.1;go()}else res({base64:b,byteSize:s})};go()};img.onerror=()=>rej(Error("Decode failed"));img.src=d})}
+         
+         function buildFoodPrompt(country){
+           return `You are an expert FOOD product data analyst. Extract data with extreme precision from product packaging images.
+         
+         CONTEXT: Product is from ${country}. Packaging is in ${country}'s official language.
+         
+         STEP 1: Scan ALL images. Front=brand/name/flavor/claims. Back=ingredients/nutrition/barcode/manufacturer/address. Sides/Top/Bottom=expiry/batch/weight/barcode.
+         STEP 2: Read text EXACTLY. Barcodes=exact digits. Weights=include units. Addresses=complete.
+         STEP 3: ALL output in English EXCEPT product_name before colon keeps original ${country} language.
+         
+         FIELD GUIDE:
+         "category": Choose from: ${JSON.stringify(FOOD_DD.categories)}
+         "product_brand": Main brand on front.
+         "product_name": "[Original ${country} name] : [English translation with flavor/variant]"
+         "positioning": Choose ALL applicable from: ${JSON.stringify(FOOD_DD.positioning)}
+         "shelving_detail": One of "Freezer","Fridge","Ambient". Based on how product is TRANSPORTED/STORED (not displayed in store). Milk/yogurt=Fridge, Ice cream=Freezer, Chips/candy/canned=Ambient, Juice boxes=Ambient.
+         "claims": ALL marketing claims translated to English.
+         "extra_notes": Warnings, certifications, special markings. Translate to English.
+         "flavors": Array of flavors from most dominant to least. If unflavored, use ["Unflavored"].
+         "expiry_date": Expiry date if visible (format as printed).
+         "manufactured_date": Manufacturing date if visible.
+         "product_to_expire_in": If manufactured date found, calculate shelf life duration.
+         "duration": Duration format (e.g., "12 months", "6 months").
+         "local_price_estimate": Retail price in ${country} local currency with symbol.
+         "local_price_country": "${country}"
+         "inner_packaging_type": Choose from: ${JSON.stringify(FOOD_DD.pkg_type)}
+         "inner_packaging_material": Choose from: ${JSON.stringify(FOOD_DD.pm)}
+         "packaging_filters": Choose applicable from: ${JSON.stringify(FOOD_DD.pkg_filters)}
+         "individual_pack_weight": Weight/volume of ONE item with unit.
+         "quantity_per_pack": Number of items in pack.
+         "whole_pack_weight": Total weight.
+         "sig_tetra_closure": If applicable, choose from: ${JSON.stringify(FOOD_DD.closure)}. If not a SIG/Tetra pack, use "N/A".
+         "product_description": 2-3 English sentences describing the product.
+         "ingredients": COMPLETE ingredient list exactly as printed. Translate to English if needed.
+         "nutri_score": Nutri-Score letter (A-E) if visible on packaging. If not visible, "Not found".
+         "barcode": EXACT digits below barcode.
+         "manufacturers_code": Inkjet-printed code near expiry date (letters+numbers). If not found, "Not found in images".
+         "ec_code": EC code in oval/circle format (e.g., "FI 60143 EY"). Include ALL if multiple. If not found, "Not found in images".
+         "ec_organic_code_1": First line under EU organic logo. If not found, "Not found in images".
+         "ec_organic_code_2": Second line (geographic region like "EU/Non-EU Agriculture"). If not found, "Not found in images".
+         "agriculture_source": If organic, choose from: ${JSON.stringify(FOOD_DD.agri)}. If not organic, "N/A".
+         "company": Parent company.
+         "co_packer": Co-packer name and details if visible. If not found, "Not found in images".
+         "manufactured_by": Full legal manufacturer name.
+         "produced_in": Country of production.
+         "company_address": {"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""}
+         "network_member_comments": Anything else notable.
+         
+         Return ONLY valid JSON, no markdown:
+         {"category":"","product_brand":"","product_name":"","positioning":[],"shelving_detail":"","claims":"","extra_notes":"","flavors":[],"expiry_date":"","manufactured_date":"","product_to_expire_in":"","duration":"","local_price_estimate":"","local_price_country":"","inner_packaging_type":"","inner_packaging_material":"","packaging_filters":[],"individual_pack_weight":"","quantity_per_pack":"","whole_pack_weight":"","sig_tetra_closure":"","product_description":"","ingredients":"","nutri_score":"","barcode":"","manufacturers_code":"","ec_code":"","ec_organic_code_1":"","ec_organic_code_2":"","agriculture_source":"","company":"","co_packer":"","manufactured_by":"","produced_in":"","company_address":{"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""},"network_member_comments":"","event":""}`;
+         }
+         
+         function buildBeautyPrompt(country){
+           let c="";for(const[t,l]of Object.entries(BEAUTY_DD.cats))c+="\n  "+t+":\n"+l.map(x=>"    - "+x).join("\n")+"\n";
+           return `You are an expert product data analyst for Beauty/HouseHold/Personal Care products. Extract with extreme precision.
+         
+         CONTEXT: Product from ${country}. Packaging in ${country}'s language.
+         STEPS: 1) Scan ALL images. 2) Read text EXACTLY. 3) ALL output English EXCEPT product_name before colon.
+         
+         FIELD GUIDE:
+         "type": Choose from: ${JSON.stringify(BEAUTY_DD.types)} (Beauty=cosmetics/makeup, HouseHold=cleaning/laundry, Personal Care=body/hair/shaving/oral/skin care)
+         "category": Based on type:${c}
+         "product_brand": Main brand. "product_name": "[Original ${country} name] : [English]"
+         "directions": Usage instructions translated to English.
+         "positioning": Choose ALL from: ${JSON.stringify(BEAUTY_DD.pos)}
+         "claims": ALL marketing claims in English. "extra_notes": Additional info.
+         "local_price_estimate": Price in ${country} currency. "local_price_country": "${country}"
+         "inner_packaging_type": From: ${JSON.stringify(BEAUTY_DD.pt)}
+         "inner_packaging_material": From: ${JSON.stringify(BEAUTY_DD.pm)}
+         "individual_pack_weight","quantity_per_pack","whole_pack_weight": As visible.
+         "product_description": 2-3 English sentences. "ingredients": Complete list. "barcode": Exact digits.
+         "company","manufactured_by","produced_in": From packaging.
+         "company_address": {"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""}
+         "network_member_comments": Anything extra.
+         
+         Return ONLY valid JSON:
+         {"type":"","category":"","product_brand":"","product_name":"","directions":"","positioning":[],"claims":"","extra_notes":"","local_price_estimate":"","local_price_country":"","inner_packaging_type":"","inner_packaging_material":"","individual_pack_weight":"","quantity_per_pack":"","whole_pack_weight":"","product_description":"","ingredients":"","barcode":"","company":"","manufactured_by":"","produced_in":"","company_address":{"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""},"network_member_comments":"","event":""}`;
+         }
+         
+         const FOOD_FIELDS=[
+           {k:"category",l:"Category",dd:"food_cat"},{k:"product_brand",l:"Product Brand"},{k:"product_name",l:"Product Name"},
+           {k:"positioning",l:"Positioning",arr:1,dd:"food_pos"},{k:"shelving_detail",l:"Shelving Detail",dd:"shelving"},
+           {k:"claims",l:"Claims",ml:1},{k:"extra_notes",l:"Extra Notes / Warnings",ml:1},
+           {k:"flavors",l:"Flavor(s)",arr:1,dd:"flavor_free"},
+           {k:"event",l:"Event",dd:"ev"},
+           {k:"expiry_date",l:"Expiry Date"},{k:"manufactured_date",l:"Manufactured Date"},
+           {k:"product_to_expire_in",l:"Product to Expire In"},{k:"duration",l:"Duration"},
+           {k:"local_price_estimate",l:"Local Price"},{k:"local_price_country",l:"Price Country"},
+           {k:"inner_packaging_type",l:"Inner Packaging Type",dd:"food_pt"},{k:"inner_packaging_material",l:"Inner Packaging Material",dd:"food_pm"},
+           {k:"packaging_filters",l:"Packaging Filters",arr:1,dd:"food_pf"},
+           {k:"individual_pack_weight",l:"Individual Pack Weight"},{k:"quantity_per_pack",l:"Quantity Per Pack"},{k:"whole_pack_weight",l:"Whole Pack Weight"},
+           {k:"sig_tetra_closure",l:"SIG/Tetra Closure Type",dd:"food_cl"},
+           {k:"product_description",l:"Product Description",ml:1},{k:"ingredients",l:"Ingredients",ml:1},
+           {k:"nutri_score",l:"Nutri-Score",dd:"nutri"},
+           {k:"barcode",l:"Barcode"},{k:"manufacturers_code",l:"Manufacturer's Code"},{k:"ec_code",l:"EC Code"},
+           {k:"ec_organic_code_1",l:"EC Organic Code 1"},{k:"ec_organic_code_2",l:"EC Organic Code 2"},
+           {k:"agriculture_source",l:"Agriculture Source",dd:"food_ag"},
+           {k:"company",l:"Company"},{k:"co_packer",l:"Co-Packer"},
+           {k:"manufactured_by",l:"Manufactured By"},{k:"produced_in",l:"Produced In"},
+           {k:"company_address",l:"Company Address",addr:1},{k:"network_member_comments",l:"Network Member Comments",ml:1},
+         ];
+         
+         const BEAUTY_FIELDS=[
+           {k:"type",l:"Type",dd:"b_types"},{k:"category",l:"Category",dd:"b_cat"},
+           {k:"product_brand",l:"Product Brand"},{k:"product_name",l:"Product Name"},
+           {k:"directions",l:"Directions",ml:1},{k:"positioning",l:"Positioning",arr:1,dd:"b_pos"},
+           {k:"claims",l:"Claims",ml:1},{k:"extra_notes",l:"Extra Notes",ml:1},
+           {k:"event",l:"Event",dd:"ev"},
+           {k:"local_price_estimate",l:"Local Price"},{k:"local_price_country",l:"Price Country"},
+           {k:"inner_packaging_type",l:"Inner Packaging Type",dd:"b_pt"},{k:"inner_packaging_material",l:"Inner Packaging Material",dd:"b_pm"},
+           {k:"individual_pack_weight",l:"Individual Pack Weight"},{k:"quantity_per_pack",l:"Quantity Per Pack"},{k:"whole_pack_weight",l:"Whole Pack Weight"},
+           {k:"product_description",l:"Product Description",ml:1},{k:"ingredients",l:"Ingredients",ml:1},
+           {k:"barcode",l:"Barcode"},
+           {k:"company",l:"Company"},{k:"manufactured_by",l:"Manufactured By"},{k:"produced_in",l:"Produced In"},
+           {k:"company_address",l:"Company Address",addr:1},{k:"network_member_comments",l:"Network Member Comments",ml:1},
+         ];
+         
+         const ADDRF=[{k:"house_number",l:"House Number"},{k:"street_name",l:"Street Name"},{k:"city",l:"City"},{k:"state_region",l:"State/Region"},{k:"postal_code",l:"Postal Code"},{k:"website",l:"Website"}];
+         
+         function App(){
+           const[mode,setMode]=useState(null); // "food" or "beauty"
+           const[imgs,setImgs]=useState([]);
+           const[country,setCountry]=useState("");
+           const[data,setData]=useState(null);
+           const[loading,setLoading]=useState(false);
+           const[prog,setProg]=useState("");
+           const[err,setErr]=useState("");
+           const[copied,setCopied]=useState(null);
+           const[allCop,setAllCop]=useState(false);
+           const[flavorInput,setFlavorInput]=useState("");
+           const fref=useRef(null);
+         
+           const fmtSz=(b)=>b<1024?b+" B":b<1048576?(b/1024).toFixed(1)+" KB":(b/1048576).toFixed(1)+" MB";
+           const FIELDS=mode==="food"?FOOD_FIELDS:BEAUTY_FIELDS;
+         
+           const addImgs=useCallback(async(e)=>{const files=Array.from(e.target.files);setErr("");const n=[];for(const f of files){try{n.push({name:f.name,size:f.size,dataURL:await readFile(f)})}catch{}}setImgs(p=>[...p,...n]);if(fref.current)fref.current.value=""},[]);
+           const rmImg=(i)=>setImgs(p=>p.filter((_,j)=>j!==i));
+         
+           const getDd=(f)=>{
+             if(f.dd==="food_cat")return FOOD_DD.categories;
+             if(f.dd==="food_pos")return FOOD_DD.positioning;
+             if(f.dd==="food_pt")return FOOD_DD.pkg_type;
+             if(f.dd==="food_pm")return FOOD_DD.pm;
+             if(f.dd==="food_pf")return FOOD_DD.pkg_filters;
+             if(f.dd==="food_cl")return FOOD_DD.closure;
+             if(f.dd==="food_ag")return FOOD_DD.agri;
+             if(f.dd==="shelving")return["Freezer","Fridge","Ambient"];
+             if(f.dd==="nutri")return["A","B","C","D","E","Not found"];
+             if(f.dd==="b_types")return BEAUTY_DD.types;
+             if(f.dd==="b_cat")return BEAUTY_DD.cats[data?.type]||[];
+             if(f.dd==="b_pos")return BEAUTY_DD.pos;
+             if(f.dd==="b_pt")return BEAUTY_DD.pt;
+             if(f.dd==="b_pm")return BEAUTY_DD.pm;
+             if(f.dd==="ev")return EVENTS;
+             return[];
+           };
+         
+           const extract=async()=>{
+             if(!imgs.length){setErr("Upload at least one image.");return}
+             if(!country){setErr("Please select Country of Product.");return}
+             setLoading(true);setErr("");setProg("");setData(null);
+             try{
+               const api=[];
+               for(let i=0;i<imgs.length;i++){setProg("Compressing "+(i+1)+"/"+imgs.length);const c=await compress(imgs[i].dataURL);api.push({type:"image",source:{type:"base64",media_type:"image/jpeg",data:c.base64}})}
+               api.push({type:"text",text:mode==="food"?buildFoodPrompt(country):buildBeautyPrompt(country)});
+               setProg("Claude AI analyzing "+imgs.length+" images ("+country+")...");
+               const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:8192,system:"You are a world-class product data extraction specialist. Perfect attention to detail. Read every image carefully. Never guess. Barcodes=exact digits. Addresses=complete. Return only valid JSON.",messages:[{role:"user",content:api}]})});
+               if(!res.ok){const b=await res.text();let m="API Error "+res.status;try{m=JSON.parse(b).error.message||m}catch{}throw Error(m)}
+               const j=await res.json();const txt=j.content.map(c=>c.text||"").join("").replace(/```json\s*/g,"").replace(/```/g,"").trim();
+               let p;try{p=JSON.parse(txt)}catch{const m=txt.match(/\{[\s\S]*\}/);if(m)p=JSON.parse(m[0]);else throw Error("Parse failed")}
+               p.event="";setData(p);
+             }catch(e){setErr(e.message)}finally{setLoading(false);setProg("")}
+           };
+         
+           const upd=(k,v)=>setData(p=>({...p,[k]:v}));
+           const updA=(sk,v)=>setData(p=>({...p,company_address:{...(p.company_address||{}),[sk]:v}}));
+           const togArr=(k,o)=>setData(p=>{const c=Array.isArray(p[k])?p[k]:[];return{...p,[k]:c.includes(o)?c.filter(x=>x!==o):[...c,o]}});
+           const addFlavor=(fl)=>{if(!fl.trim())return;setData(p=>({...p,flavors:[...(p.flavors||[]),fl.trim()]}));setFlavorInput("")};
+           const rmFlavor=(i)=>setData(p=>({...p,flavors:(p.flavors||[]).filter((_,j)=>j!==i)}));
+         
+           const cpF=(k,v)=>{const t=Array.isArray(v)?v.join(", "):typeof v==="object"?Object.values(v||{}).filter(Boolean).join(", "):String(v||"");navigator.clipboard.writeText(t);setCopied(k);setTimeout(()=>setCopied(null),1500)};
+           const cpAll=()=>{if(!data)return;let t="";FIELDS.forEach(f=>{const v=data[f.k];if(f.addr&&typeof v==="object"){t+=f.l+":\n";ADDRF.forEach(a=>{t+="  "+a.l+": "+((v&&v[a.k])||"N/A")+"\n"})}else if(f.arr&&Array.isArray(v))t+=f.l+": "+v.join(", ")+"\n";else t+=f.l+": "+(v||"N/A")+"\n"});navigator.clipboard.writeText(t);setAllCop(true);setTimeout(()=>setAllCop(false),2000)};
+           const reset=()=>{setImgs([]);setCountry("");setData(null);setErr("");setProg("")};
+           const fullReset=()=>{reset();setMode(null)};
+         
+           const bi={width:"100%",padding:"8px 10px",background:"#0d1117",border:"1px solid #2d3748",borderRadius:8,color:"#e2e8f0",fontSize:13,boxSizing:"border-box",fontFamily:"inherit",outline:"none"};
+         
+           // ===== MODE SELECTION SCREEN =====
+           if(!mode) return(
+             <div style={{minHeight:"100vh",background:"#0a0e17",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+               <style dangerouslySetInnerHTML={{__html:"@keyframes spin{to{transform:rotate(360deg)}}"}}/>
+               <div style={{textAlign:"center",maxWidth:500,padding:20}}>
+                 <div style={{fontSize:48,marginBottom:12}}>📦</div>
+                 <h1 style={{color:"#f1f5f9",fontSize:24,margin:"0 0 6px"}}>Product Data Extractor</h1>
+                 <p style={{color:"#64748b",fontSize:13,margin:"0 0 32px"}}>AI-Powered | Upload &gt; Extract &gt; Copy</p>
+                 <p style={{color:"#94a3b8",fontSize:14,margin:"0 0 20px"}}>What type of product are you extracting?</p>
+                 <div style={{display:"flex",gap:16,justifyContent:"center"}}>
+                   <button onClick={()=>setMode("food")} style={{flex:1,padding:"24px 16px",background:"linear-gradient(135deg,#059669,#10b981)",border:"none",borderRadius:14,cursor:"pointer",color:"#fff"}}>
+                     <div style={{fontSize:32,marginBottom:8}}>🍔</div>
+                     <div style={{fontSize:16,fontWeight:700}}>Food</div>
+                     <div style={{fontSize:11,opacity:.8,marginTop:4}}>Dairy, Beverages, Snacks, Meals...</div>
+                   </button>
+                   <button onClick={()=>setMode("beauty")} style={{flex:1,padding:"24px 16px",background:"linear-gradient(135deg,#8b5cf6,#a855f7)",border:"none",borderRadius:14,cursor:"pointer",color:"#fff"}}>
+                     <div style={{fontSize:32,marginBottom:8}}>💄</div>
+                     <div style={{fontSize:16,fontWeight:700}}>Beauty / HPC</div>
+                     <div style={{fontSize:11,opacity:.8,marginTop:4}}>Personal Care, HouseHold, Beauty</div>
+                   </button>
+                 </div>
+               </div>
+             </div>
+           );
+         
+           // ===== MAIN APP =====
+           return(
+             <div style={{minHeight:"100vh",background:"#0a0e17",color:"#e2e8f0",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+               <style dangerouslySetInnerHTML={{__html:"@keyframes spin{to{transform:rotate(360deg)}} select option{background:#0d1117;color:#e2e8f0}"}}/>
+               <div style={{background:"linear-gradient(135deg,#0f172a,#1a1f3a,#0f172a)",borderBottom:"1px solid #1e293b",padding:"12px 20px"}}>
+                 <div style={{maxWidth:860,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                   <div style={{display:"flex",alignItems:"center",gap:10}}>
+                     <div style={{width:32,height:32,borderRadius:8,background:mode==="food"?"linear-gradient(135deg,#059669,#10b981)":"linear-gradient(135deg,#8b5cf6,#a855f7)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{mode==="food"?"🍔":"💄"}</div>
+                     <div><div style={{fontSize:16,fontWeight:700,color:"#f1f5f9"}}>Product Data Extractor</div><div style={{fontSize:10,color:"#64748b"}}>{mode==="food"?"Food Mode":"Beauty / HPC Mode"}</div></div>
+                   </div>
+                   <div style={{display:"flex",gap:6}}>
+                     {data&&<button onClick={reset} style={{padding:"4px 10px",background:"#1e293b",border:"1px solid #334155",borderRadius:6,color:"#94a3b8",cursor:"pointer",fontSize:11}}>New Product</button>}
+                     <button onClick={fullReset} style={{padding:"4px 10px",background:"#1e293b",border:"1px solid #334155",borderRadius:6,color:"#94a3b8",cursor:"pointer",fontSize:11}}>Switch Mode</button>
+                   </div>
+                 </div>
+               </div>
+         
+               <div style={{maxWidth:860,margin:"0 auto",padding:"16px 14px"}}>
+                 {!data&&(
+                   <div style={{background:"#111827",borderRadius:14,border:"1px solid #1e293b",padding:18}}>
+                     <div style={{fontSize:13,color:"#94a3b8",fontWeight:600,marginBottom:10}}><span style={{color:mode==="food"?"#10b981":"#a855f7"}}>01</span> Upload Product Images</div>
+                     <div onClick={()=>fref.current?.click()} style={{border:"2px dashed #2d3748",borderRadius:12,padding:18,textAlign:"center",cursor:"pointer",background:"#0d1117"}}>
+                       <input ref={fref} type="file" accept="image/*" multiple onChange={addImgs} style={{display:"none"}}/>
+                       {!imgs.length?(<div><div style={{fontSize:36,color:mode==="food"?"#10b981":"#a855f7"}}>+</div><div style={{color:"#94a3b8",fontSize:13,marginTop:4}}>Click to upload product photos</div></div>):(
+                         <div style={{display:"flex",flexWrap:"wrap",gap:7,justifyContent:"center"}}>
+                           {imgs.map((im,i)=>(<div key={i} style={{position:"relative",width:100,height:100,flexShrink:0}}><img src={im.dataURL} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:8,border:"1px solid #2d3748",display:"block"}}/><button onClick={e=>{e.stopPropagation();rmImg(i)}} style={{position:"absolute",top:-5,right:-5,width:18,height:18,borderRadius:"50%",background:"#ef4444",border:"2px solid #111827",color:"#fff",cursor:"pointer",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>X</button><div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,.8)",borderRadius:"0 0 8px 8px",padding:"2px 4px"}}><div style={{fontSize:8,color:"#d1d5db",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{im.name}</div><div style={{fontSize:7,color:"#6b7280"}}>{fmtSz(im.size)}</div></div></div>))}
+                           <div onClick={e=>{e.stopPropagation();fref.current?.click()}} style={{width:100,height:100,borderRadius:8,border:"2px dashed #2d3748",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:"#4a5568",fontSize:10,cursor:"pointer"}}><span style={{fontSize:20}}>+</span>Add more</div>
+                         </div>
+                       )}
+                     </div>
+                     {imgs.length>0&&<div style={{margin:"5px 0 0",fontSize:10,color:"#4a5568"}}>{imgs.length} image{imgs.length>1?"s":""} | {fmtSz(imgs.reduce((s,i)=>s+i.size,0))} | Auto-compressed</div>}
+                     {imgs.length>0&&(<div style={{marginTop:12,padding:"10px 12px",background:"#0d1117",border:"1px solid #1e293b",borderRadius:10}}>
+                       <div style={{fontSize:12,color:"#94a3b8",fontWeight:600,marginBottom:6}}>Country of Product <span style={{color:"#ef4444"}}>*</span></div>
+                       <select value={country} onChange={e=>{setCountry(e.target.value);setErr("")}} style={{...bi,padding:"10px 12px",fontSize:14,border:country?"1px solid "+(mode==="food"?"#10b981":"#8b5cf6"):"1px solid #2d3748",color:country?"#e2e8f0":"#64748b"}}><option value="">-- Select country --</option>{COUNTRIES.map(c=><option key={c} value={c}>{c}</option>)}</select>
+                       {country&&<div style={{marginTop:5,fontSize:10,color:"#4ade80"}}>AI will use {country} language & currency</div>}
+                     </div>)}
+                     {imgs.length>0&&(<button onClick={extract} disabled={loading} style={{width:"100%",marginTop:10,padding:12,background:loading?"#1e293b":mode==="food"?"linear-gradient(135deg,#059669,#10b981)":"linear-gradient(135deg,#8b5cf6,#a855f7)",border:loading?"1px solid #334155":"none",borderRadius:10,color:loading?"#64748b":"#fff",fontSize:13,fontWeight:600,cursor:loading?"not-allowed":"pointer"}}>{loading?prog:"Extract Data from "+imgs.length+" Image"+(imgs.length>1?"s":"")}</button>)}
+                     {err&&<div style={{marginTop:8,padding:"8px 10px",background:"#1c1117",border:"1px solid #7f1d1d",borderRadius:8,color:"#fca5a5",fontSize:11,wordBreak:"break-word"}}>{err}</div>}
+                   </div>
+                 )}
+         
+                 {loading&&(<div style={{textAlign:"center",padding:"24px 0"}}><div style={{display:"inline-block",width:40,height:40,borderRadius:"50%",border:"3px solid #1e293b",borderTopColor:mode==="food"?"#10b981":"#8b5cf6",animation:"spin 1s linear infinite"}}/><div style={{color:"#94a3b8",marginTop:8,fontSize:11}}>{prog}</div></div>)}
+         
+                 {data&&(
+                   <div>
+                     <div style={{display:"flex",gap:4,marginBottom:10,overflowX:"auto",paddingBottom:3}}>
+                       {imgs.map((im,i)=><img key={i} src={im.dataURL} alt="" style={{width:40,height:40,objectFit:"cover",borderRadius:5,border:"1px solid #2d3748",flexShrink:0}}/>)}
+                       {country&&<div style={{display:"flex",alignItems:"center",padding:"0 7px",background:"#1e293b",borderRadius:5,fontSize:10,color:"#94a3b8",flexShrink:0}}>{country}</div>}
+                     </div>
+                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                       <div style={{fontSize:13,color:"#94a3b8",fontWeight:600}}><span style={{color:mode==="food"?"#10b981":"#a855f7"}}>02</span> Extracted Data</div>
+                       <button onClick={cpAll} style={{padding:"5px 14px",background:allCop?"#059669":mode==="food"?"linear-gradient(135deg,#059669,#10b981)":"linear-gradient(135deg,#8b5cf6,#a855f7)",border:"none",borderRadius:6,color:"#fff",fontSize:10,fontWeight:600,cursor:"pointer"}}>{allCop?"Copied!":"Copy All"}</button>
+                     </div>
+         
+                     <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                       {FIELDS.map(f=>{
+                         const v=data[f.k];
+                         const isFlavors=f.k==="flavors";
+                         return(
+                           <div key={f.k} style={{background:"#111827",borderRadius:8,border:"1px solid #1e293b",padding:"8px 11px"}}>
+                             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                               <span style={{fontSize:9,color:"#64748b",fontWeight:600,textTransform:"uppercase",letterSpacing:.4}}>{f.l}</span>
+                               <button onClick={()=>cpF(f.k,v)} style={{padding:"1px 8px",background:copied===f.k?"#059669":"#1e293b",border:"1px solid "+(copied===f.k?"#059669":"#334155"),borderRadius:4,color:copied===f.k?"#fff":"#94a3b8",cursor:"pointer",fontSize:9}}>{copied===f.k?"OK":"Copy"}</button>
+                             </div>
+                             {f.dd&&!f.arr&&!isFlavors?(
+                               <select value={v||""} onChange={e=>upd(f.k,e.target.value)} style={bi}><option value="">-- Select --</option>{getDd(f).map(o=><option key={o} value={o}>{o}</option>)}</select>
+                             ):f.arr&&!isFlavors?(
+                               <div>
+                                 {Array.isArray(v)&&v.length>0&&(<div style={{display:"flex",flexWrap:"wrap",gap:2,marginBottom:4}}>{v.map((x,i)=>(<span key={i} onClick={()=>togArr(f.k,x)} style={{padding:"1px 7px",background:"#1e3a5f",border:"1px solid #3b82f6",borderRadius:12,color:"#93c5fd",fontSize:9,cursor:"pointer"}}>{x} x</span>))}</div>)}
+                                 <select value="" onChange={e=>{if(e.target.value)togArr(f.k,e.target.value)}} style={bi}><option value="">+ Add...</option>{getDd(f).filter(o=>!(Array.isArray(v)?v:[]).includes(o)).map(o=><option key={o} value={o}>{o}</option>)}</select>
+                               </div>
+                             ):isFlavors?(
+                               <div>
+                                 {Array.isArray(v)&&v.length>0&&(<div style={{display:"flex",flexWrap:"wrap",gap:2,marginBottom:4}}>{v.map((x,i)=>(<span key={i} style={{padding:"1px 7px",background:"#3b2a1a",border:"1px solid #d97706",borderRadius:12,color:"#fbbf24",fontSize:9,display:"inline-flex",alignItems:"center",gap:3}}>{"Flavor "+(i+1)+": "+x}<span onClick={()=>rmFlavor(i)} style={{cursor:"pointer",opacity:.6}}>x</span></span>))}</div>)}
+                                 <div style={{display:"flex",gap:4}}><input type="text" value={flavorInput} onChange={e=>setFlavorInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addFlavor(flavorInput)} placeholder="Type flavor and press Enter..." style={{...bi,flex:1}}/><button onClick={()=>addFlavor(flavorInput)} style={{padding:"6px 12px",background:"#d97706",border:"none",borderRadius:6,color:"#fff",fontSize:11,cursor:"pointer",flexShrink:0}}>+ Add</button></div>
+                               </div>
+                             ):f.addr?(
+                               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>{ADDRF.map(a=>(<div key={a.k}><div style={{fontSize:8,color:"#4a5568",marginBottom:1}}>{a.l}</div><input type="text" value={(v&&typeof v==="object"?v[a.k]:"")||""} onChange={e=>updA(a.k,e.target.value)} style={bi}/></div>))}</div>
+                             ):f.ml?(
+                               <textarea value={v||""} onChange={e=>upd(f.k,e.target.value)} rows={3} style={{...bi,resize:"vertical"}}/>
+                             ):(
+                               <input type="text" value={v||""} onChange={e=>upd(f.k,e.target.value)} style={bi}/>
+                             )}
+                           </div>
+                         );
+                       })}
+                     </div>
+         
+                     <div style={{display:"flex",gap:6,marginTop:12,paddingBottom:28}}>
+                       <button onClick={cpAll} style={{flex:1,padding:11,background:allCop?"#059669":mode==="food"?"linear-gradient(135deg,#059669,#10b981)":"linear-gradient(135deg,#8b5cf6,#a855f7)",border:"none",borderRadius:10,color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer"}}>{allCop?"All Copied!":"Copy All to Clipboard"}</button>
+                       <button onClick={reset} style={{padding:"11px 16px",background:"#1e293b",border:"1px solid #334155",borderRadius:10,color:"#94a3b8",fontSize:12,cursor:"pointer"}}>New</button>
+                     </div>
+                   </div>
+                 )}
+               </div>
+             </div>
+           );
+         }
+         
+         
+         function AppWithAuth(){
+           const[apiKey,setApiKey]=React.useState(localStorage.getItem("pde_api_key")||"");
+           const[tempKey,setTempKey]=React.useState("");
+           const[showModal,setShowModal]=React.useState(!apiKey);
+           const[keyErr,setKeyErr]=React.useState("");
+           const saveKey=()=>{const k=tempKey.trim();if(!k){setKeyErr("Enter your API key.");return}if(!k.startsWith("sk-ant-")){setKeyErr("Key should start with sk-ant-");return}localStorage.setItem("pde_api_key",k);setApiKey(k);setShowModal(false);setKeyErr("")};
+           React.useEffect(()=>{if(!apiKey)return;const orig=window._origFetch||window.fetch;if(!window._origFetch)window._origFetch=window.fetch;window.fetch=function(url,opts){if(typeof url==="string"&&url.includes("api.anthropic.com")){opts=opts||{};opts.headers=opts.headers||{};opts.headers["x-api-key"]=apiKey;opts.headers["anthropic-version"]="2023-06-01";opts.headers["anthropic-dangerous-direct-browser-access"]="true"}return orig.call(this,url,opts)};return()=>{window.fetch=orig}},[apiKey]);
+           if(showModal)return(<div className="api-overlay"><div className="api-modal"><h2>API Key Required</h2><p>Enter your Anthropic API key. Stored locally in your browser only.</p>{keyErr&&<div style={{color:"#fca5a5",fontSize:11,marginBottom:8}}>{keyErr}</div>}<input type="password" placeholder="sk-ant-api03-..." value={tempKey} onChange={e=>{setTempKey(e.target.value);setKeyErr("")}} onKeyDown={e=>e.key==="Enter"&&saveKey()}/><button onClick={saveKey} disabled={!tempKey.trim()}>Save & Start</button><div className="hint">Get key at <a href="https://console.anthropic.com/settings/keys" target="_blank" style={{color:"#3b82f6"}}>console.anthropic.com</a></div></div></div>);
+           return(<div><div style={{position:"fixed",top:8,right:8,zIndex:999,display:"flex",gap:4}}><button onClick={()=>{setTempKey(apiKey);setShowModal(true)}} style={{padding:"3px 8px",background:"#1e293b",border:"1px solid #334155",borderRadius:4,color:"#64748b",cursor:"pointer",fontSize:9}}>Key</button><button onClick={()=>{localStorage.removeItem("pde_api_key");setApiKey("");setShowModal(true)}} style={{padding:"3px 8px",background:"#1e293b",border:"1px solid #334155",borderRadius:4,color:"#64748b",cursor:"pointer",fontSize:9}}>Logout</button></div><App/></div>);
+         }
+         ReactDOM.createRoot(document.getElementById("root")).render(<AppWithAuth/>);
+      </script>
+   </body>
 </html>
