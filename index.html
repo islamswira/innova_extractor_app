@@ -38,54 +38,146 @@
          
          const MAX_DIM=1568;
          function readFile(f){return new Promise((r,j)=>{const R=new FileReader();R.onload=()=>r(R.result);R.onerror=()=>j(Error("Read failed"));R.readAsDataURL(f)})}
-         function compress(d){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{let w=img.naturalWidth,h=img.naturalHeight;if(w>MAX_DIM||h>MAX_DIM){const r=Math.min(MAX_DIM/w,MAX_DIM/h);w=Math.round(w*r);h=Math.round(h*r)}const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.imageSmoothingEnabled=true;x.imageSmoothingQuality="high";x.drawImage(img,0,0,w,h);let q=0.85;const go=()=>{const r=c.toDataURL("image/jpeg",q);const b=r.split(",")[1];const s=Math.ceil(b.length*3/4);if(s>4500000&&q>0.25){q-=0.1;go()}else res({base64:b,byteSize:s})};go()};img.onerror=()=>rej(Error("Decode failed"));img.src=d})}
+         
+         function enhanceImage(ctx, w, h) {
+           // Apply contrast enhancement and sharpening for better text readability
+           const imageData = ctx.getImageData(0, 0, w, h);
+           const d = imageData.data;
+           
+           // 1. Auto contrast stretch - find actual min/max brightness
+           let minB = 255, maxB = 0;
+           for (let i = 0; i < d.length; i += 4) {
+             const brightness = (d[i] + d[i+1] + d[i+2]) / 3;
+             if (brightness < minB) minB = brightness;
+             if (brightness > maxB) maxB = brightness;
+           }
+           const range = maxB - minB || 1;
+           
+           // 2. Apply contrast stretch + slight sharpening boost
+           for (let i = 0; i < d.length; i += 4) {
+             for (let c = 0; c < 3; c++) {
+               // Contrast stretch
+               let val = ((d[i+c] - minB) / range) * 255;
+               // Mild S-curve for better contrast on text
+               val = val / 255;
+               val = val < 0.5 ? 2 * val * val : 1 - 2 * (1 - val) * (1 - val);
+               d[i+c] = Math.max(0, Math.min(255, Math.round(val * 255)));
+             }
+           }
+           ctx.putImageData(imageData, 0, 0);
+           
+           // 3. Unsharp mask via double-canvas technique
+           const c2 = document.createElement("canvas");
+           c2.width = w; c2.height = h;
+           const x2 = c2.getContext("2d");
+           x2.filter = "blur(1px)";
+           x2.drawImage(ctx.canvas, 0, 0);
+           
+           // Blend: original + (original - blur) * amount
+           const blurred = x2.getImageData(0, 0, w, h);
+           const sharp = ctx.getImageData(0, 0, w, h);
+           const amount = 0.4; // sharpening strength
+           for (let i = 0; i < sharp.data.length; i += 4) {
+             for (let c = 0; c < 3; c++) {
+               const diff = sharp.data[i+c] - blurred.data[i+c];
+               sharp.data[i+c] = Math.max(0, Math.min(255, Math.round(sharp.data[i+c] + diff * amount)));
+             }
+           }
+           ctx.putImageData(sharp, 0, 0);
+         }
+         
+         function compress(d){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{let w=img.naturalWidth,h=img.naturalHeight;
+           // For small/low-res images, upscale slightly to help AI read text
+           const minDim = 800;
+           if (w < minDim && h < minDim) {
+             const scale = minDim / Math.max(w, h);
+             w = Math.round(w * scale); h = Math.round(h * scale);
+           }
+           if(w>MAX_DIM||h>MAX_DIM){const r=Math.min(MAX_DIM/w,MAX_DIM/h);w=Math.round(w*r);h=Math.round(h*r)}
+           const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");
+           x.imageSmoothingEnabled=true;x.imageSmoothingQuality="high";
+           x.drawImage(img,0,0,w,h);
+           // Apply image enhancement for better text extraction
+           try { enhanceImage(x, w, h); } catch(e) { console.warn("Enhancement skipped:", e); }
+           let q=0.88;const go=()=>{const r=c.toDataURL("image/jpeg",q);const b=r.split(",")[1];const s=Math.ceil(b.length*3/4);if(s>4800000&&q>0.3){q-=0.08;go()}else res({base64:b,byteSize:s})};go()};img.onerror=()=>rej(Error("Decode failed"));img.src=d})}
          
          function buildFoodPrompt(country){
-           return `You are an expert FOOD product data analyst. Extract data with extreme precision from product packaging images.
+           return `You are an expert FOOD product data analyst with 15+ years experience in FMCG product cataloging. Extract data with EXTREME precision from product packaging images.
          
          CONTEXT: Product is from ${country}. Packaging is in ${country}'s official language.
          
-         STEP 1: Scan ALL images. Front=brand/name/flavor/claims. Back=ingredients/nutrition/barcode/manufacturer/address. Sides/Top/Bottom=expiry/batch/weight/barcode.
-         STEP 2: Read text EXACTLY. Barcodes=exact digits. Weights=include units. Addresses=complete.
-         STEP 3: ALL output in English EXCEPT product_name before colon keeps original ${country} language.
+         CRITICAL IMAGE READING INSTRUCTIONS:
+         =====================================
+         - Examine EVERY pixel of EVERY image. Zoom into corners, edges, small print.
+         - FRONT panel: brand logo, product name, variant/flavor, quantity, key claims, Nutri-Score logo
+         - BACK panel: ingredients list, nutritional table, barcode, manufacturer address, directions, warnings, EC codes
+         - SIDE panels: nutritional info continued, weight, expiry/manufacturing dates, batch codes, additional addresses
+         - TOP/BOTTOM: barcode, lot numbers, manufacturer codes (inkjet-printed), expiry dates, closure details
+         - If text is blurry or partially visible, report what you CAN read with [...] for unclear parts
+         - For barcodes: read EVERY digit. Count them. EAN-13 = 13 digits, EAN-8 = 8 digits. If partially obscured, note which digits are unclear
+         - For addresses: read the COMPLETE address including postal codes, phone numbers, websites
+         - For ingredients: transcribe the ENTIRE list, every single ingredient, including E-numbers and percentages
          
-         FIELD GUIDE:
-         "category": Choose from: ${JSON.stringify(FOOD_DD.categories)}
-         "product_brand": Main brand on front.
-         "product_name": "[Original ${country} name] : [English translation with flavor/variant]"
-         "positioning": Choose ALL applicable from: ${JSON.stringify(FOOD_DD.positioning)}
-         "shelving_detail": One of "Freezer","Fridge","Ambient". Based on how product is TRANSPORTED/STORED (not displayed in store). Milk/yogurt=Fridge, Ice cream=Freezer, Chips/candy/canned=Ambient, Juice boxes=Ambient.
-         "claims": ALL marketing claims translated to English.
-         "extra_notes": Warnings, certifications, special markings. Translate to English.
-         "flavors": Array of flavors from most dominant to least. If unflavored, use ["Unflavored"].
-         "expiry_date": Expiry date if visible (format as printed).
-         "manufactured_date": Manufacturing date if visible.
-         "product_to_expire_in": If manufactured date found, calculate shelf life duration.
-         "duration": Duration format (e.g., "12 months", "6 months").
-         "local_price_estimate": Retail price in ${country} local currency with symbol.
+         FIELD-BY-FIELD GUIDE:
+         =====================
+         "category": Choose the BEST match from: ${JSON.stringify(FOOD_DD.categories)}
+           Think carefully: Is this a dairy product? A beverage? A snack? A confectionery? Match precisely.
+         
+         "product_brand": The MAIN brand name displayed prominently on front of package.
+         
+         "product_name": "[Original ${country} name EXACTLY as printed] : [English translation including flavor/variant]"
+           Example: "مفيد جيبي فراولة : Moufid Jibi Strawberry Flavored Milk"
+         
+         "positioning": Choose ALL that apply from: ${JSON.stringify(FOOD_DD.positioning)}
+           Look for: organic logos, halal marks, vitamin claims, sugar-free claims, age recommendations, etc.
+         
+         "shelving_detail": "Freezer" or "Fridge" or "Ambient"
+           RULE: Based on how product is TRANSPORTED to store, NOT how it's displayed.
+           - Fridge: fresh milk, yogurt, fresh juice, cheese, fresh meat, butter
+           - Freezer: ice cream, frozen meals, frozen vegetables
+           - Ambient: UHT milk, juice boxes, canned food, dry goods, snacks, candy, bottled water, shelf-stable beverages
+         
+         "claims": Translate ALL marketing claims to English. Include front AND back claims.
+         
+         "extra_notes": ALL warnings, allergen notices, storage instructions, certifications. Translate to English.
+         
+         "flavors": Array from most dominant to least. Read the EXACT flavor from the packaging.
+           If product says "Strawberry" = ["Strawberry"]. If "Strawberry Banana" = ["Strawberry", "Banana"].
+           If unflavored/plain, use ["Unflavored"].
+         
+         "expiry_date": Look for "EXP", "BB", "Best Before", date stamps. Format exactly as printed.
+         "manufactured_date": Look for "MFG", "Production Date", "Prod". Format exactly as printed.
+         "product_to_expire_in": If both dates found, calculate duration.
+         "duration": e.g., "6 months", "12 months", "2 years"
+         
+         "local_price_estimate": Search the internet for the current retail price of this EXACT product (brand + name + size) in ${country}. Use ${country}'s local currency with symbol. If you cannot find the exact price, estimate based on similar products in ${country}. Format: "SYMBOL AMOUNT" (e.g., "MAD 5.50", "EUR 2.99", "BRL 8.90").
+         
          "local_price_country": "${country}"
-         "inner_packaging_type": Choose from: ${JSON.stringify(FOOD_DD.pkg_type)}
+         
+         "inner_packaging_type": What is the PRIMARY container? Choose from: ${JSON.stringify(FOOD_DD.pkg_type)}
          "inner_packaging_material": Choose from: ${JSON.stringify(FOOD_DD.pm)}
-         "packaging_filters": Choose applicable from: ${JSON.stringify(FOOD_DD.pkg_filters)}
-         "individual_pack_weight": Weight/volume of ONE item with unit.
-         "quantity_per_pack": Number of items in pack.
-         "whole_pack_weight": Total weight.
-         "sig_tetra_closure": If applicable, choose from: ${JSON.stringify(FOOD_DD.closure)}. If not a SIG/Tetra pack, use "N/A".
-         "product_description": 2-3 English sentences describing the product.
-         "ingredients": COMPLETE ingredient list exactly as printed. Translate to English if needed.
-         "nutri_score": Nutri-Score letter (A-E) if visible on packaging. If not visible, "Not found".
-         "barcode": EXACT digits below barcode.
-         "manufacturers_code": Inkjet-printed code near expiry date (letters+numbers). If not found, "Not found in images".
-         "ec_code": EC code in oval/circle format (e.g., "FI 60143 EY"). Include ALL if multiple. If not found, "Not found in images".
-         "ec_organic_code_1": First line under EU organic logo. If not found, "Not found in images".
-         "ec_organic_code_2": Second line (geographic region like "EU/Non-EU Agriculture"). If not found, "Not found in images".
-         "agriculture_source": If organic, choose from: ${JSON.stringify(FOOD_DD.agri)}. If not organic, "N/A".
-         "company": Parent company.
-         "co_packer": Co-packer name and details if visible. If not found, "Not found in images".
-         "manufactured_by": Full legal manufacturer name.
-         "produced_in": Country of production.
-         "company_address": {"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""}
-         "network_member_comments": Anything else notable.
+         "packaging_filters": Choose ALL applicable from: ${JSON.stringify(FOOD_DD.pkg_filters)}
+         "individual_pack_weight": Exact weight/volume with unit as printed (e.g., "200ml", "30g").
+         "quantity_per_pack": Number of items. Single item = "1".
+         "whole_pack_weight": Total package weight.
+         "sig_tetra_closure": Choose from: ${JSON.stringify(FOOD_DD.closure)}. If NOT a SIG/Tetra package, use "N/A".
+         
+         "product_description": 2-3 detailed English sentences. What is it, who is it for, key features.
+         "ingredients": COMPLETE list. Transcribe EVERY ingredient. Use standard English names. Include percentages if shown.
+         "nutri_score": Look for the colored A-B-C-D-E Nutri-Score logo. Report the letter. If not visible: "Not found".
+         
+         "barcode": ALL digits. No spaces. Double-check the count.
+         "manufacturers_code": Inkjet/laser-printed code (often near expiry). Letters+numbers, e.g., "L3 15:42 02/24". If not found: "Not found in images".
+         "ec_code": Oval mark with country code + number + EC (e.g., "FR 29.209.090 CE"). Include ALL if multiple.
+         "ec_organic_code_1": Code under EU organic leaf logo, first line. "ec_organic_code_2": Second line.
+         "agriculture_source": If organic product, choose from: ${JSON.stringify(FOOD_DD.agri)}. Otherwise "N/A".
+         
+         "company": Parent/holding company.
+         "co_packer": Look for "Packed by", "Co-packed by", "Distributed by" with a DIFFERENT company than manufacturer. Include their full details. If none: "Not found in images".
+         "manufactured_by": FULL legal name exactly as printed.
+         "produced_in": Exact country from "Made in", "Produced in", etc.
+         "company_address": Parse COMPLETELY: house_number, street_name, city, state_region, postal_code, website.
+         "network_member_comments": Anything notable not covered above.
          
          Return ONLY valid JSON, no markdown:
          {"category":"","product_brand":"","product_name":"","positioning":[],"shelving_detail":"","claims":"","extra_notes":"","flavors":[],"expiry_date":"","manufactured_date":"","product_to_expire_in":"","duration":"","local_price_estimate":"","local_price_country":"","inner_packaging_type":"","inner_packaging_material":"","packaging_filters":[],"individual_pack_weight":"","quantity_per_pack":"","whole_pack_weight":"","sig_tetra_closure":"","product_description":"","ingredients":"","nutri_score":"","barcode":"","manufacturers_code":"","ec_code":"","ec_organic_code_1":"","ec_organic_code_2":"","agriculture_source":"","company":"","co_packer":"","manufactured_by":"","produced_in":"","company_address":{"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""},"network_member_comments":"","event":""}`;
@@ -93,23 +185,33 @@
          
          function buildBeautyPrompt(country){
            let c="";for(const[t,l]of Object.entries(BEAUTY_DD.cats))c+="\n  "+t+":\n"+l.map(x=>"    - "+x).join("\n")+"\n";
-           return `You are an expert product data analyst for Beauty/HouseHold/Personal Care products. Extract with extreme precision.
+           return `You are an expert Beauty/HPC product data analyst with 15+ years experience. Extract with EXTREME precision.
          
          CONTEXT: Product from ${country}. Packaging in ${country}'s language.
-         STEPS: 1) Scan ALL images. 2) Read text EXACTLY. 3) ALL output English EXCEPT product_name before colon.
          
-         FIELD GUIDE:
-         "type": Choose from: ${JSON.stringify(BEAUTY_DD.types)} (Beauty=cosmetics/makeup, HouseHold=cleaning/laundry, Personal Care=body/hair/shaving/oral/skin care)
+         CRITICAL IMAGE READING:
+         - Examine EVERY pixel. Zoom into fine print, back panel, bottom.
+         - If text is blurry, report what you CAN read with [...] for unclear parts.
+         - Barcodes: read EVERY digit, count them. EAN-13=13 digits.
+         - Addresses: COMPLETE including postal codes, phone numbers, websites.
+         - Ingredients: ENTIRE list including INCI names, percentages.
+         
+         FIELDS:
+         "type": ${JSON.stringify(BEAUTY_DD.types)} (Beauty=cosmetics/makeup, HouseHold=cleaning/laundry, Personal Care=body/hair/shaving/oral/skin)
          "category": Based on type:${c}
-         "product_brand": Main brand. "product_name": "[Original ${country} name] : [English]"
-         "directions": Usage instructions translated to English.
-         "positioning": Choose ALL from: ${JSON.stringify(BEAUTY_DD.pos)}
-         "claims": ALL marketing claims in English. "extra_notes": Additional info.
-         "local_price_estimate": Price in ${country} currency. "local_price_country": "${country}"
+         "product_brand": Main brand. "product_name": "[Original ${country} name EXACTLY as printed] : [English translation]"
+         "directions": COMPLETE usage instructions translated to English. Every sentence.
+         "positioning": ALL applicable from: ${JSON.stringify(BEAUTY_DD.pos)}
+         "claims": ALL marketing claims in English. Front AND back.
+         "extra_notes": Warnings, certifications, special marks.
+         "local_price_estimate": Search the internet for current retail price of this EXACT product (brand+name+size) in ${country}. Use ${country}'s local currency with symbol. Format: "SYMBOL AMOUNT".
+         "local_price_country": "${country}"
          "inner_packaging_type": From: ${JSON.stringify(BEAUTY_DD.pt)}
          "inner_packaging_material": From: ${JSON.stringify(BEAUTY_DD.pm)}
-         "individual_pack_weight","quantity_per_pack","whole_pack_weight": As visible.
-         "product_description": 2-3 English sentences. "ingredients": Complete list. "barcode": Exact digits.
+         "individual_pack_weight","quantity_per_pack","whole_pack_weight": Exact with units.
+         "product_description": 2-3 detailed English sentences.
+         "ingredients": COMPLETE INCI list. Every single ingredient.
+         "barcode": ALL digits, no spaces.
          "company","manufactured_by","produced_in": From packaging.
          "company_address": {"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""}
          "network_member_comments": Anything extra.
@@ -205,9 +307,26 @@
                for(let i=0;i<imgs.length;i++){setProg("Compressing "+(i+1)+"/"+imgs.length);const c=await compress(imgs[i].dataURL);api.push({type:"image",source:{type:"base64",media_type:"image/jpeg",data:c.base64}})}
                api.push({type:"text",text:mode==="food"?buildFoodPrompt(country):buildBeautyPrompt(country)});
                setProg("Claude AI analyzing "+imgs.length+" images ("+country+")...");
-               const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:8192,system:"You are a world-class product data extraction specialist. Perfect attention to detail. Read every image carefully. Never guess. Barcodes=exact digits. Addresses=complete. Return only valid JSON.",messages:[{role:"user",content:api}]})});
+               const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:8192,system:"You are a world-class product data extraction specialist with 15+ years of FMCG/CPG cataloging experience. You have PERFECT attention to detail and NEVER guess or approximate. Rules: 1) Read EVERY image pixel-by-pixel. 2) For blurry/low-quality images, enhance mentally - look for shapes of letters, context clues, partial text. 3) Barcodes MUST be exact digits - count them. 4) Addresses MUST be complete with postal codes. 5) Ingredients MUST be the FULL list. 6) Cross-reference ALL images before answering. 7) For local price, use your knowledge of typical retail prices in the specified country for this exact product type and size. 8) Return ONLY valid JSON.",tools:[{type:"web_search_20250305",name:"web_search"}],messages:[{role:"user",content:api}]})});
                if(!res.ok){const b=await res.text();let m="API Error "+res.status;try{m=JSON.parse(b).error.message||m}catch{}throw Error(m)}
-               const j=await res.json();const txt=j.content.map(c=>c.text||"").join("").replace(/```json\s*/g,"").replace(/```/g,"").trim();
+               const j=await res.json();
+               // Handle responses that may include web search tool_use blocks
+               let fullText = "";
+               if (j.content) {
+                 for (const block of j.content) {
+                   if (block.type === "text" && block.text) fullText += block.text;
+                 }
+               }
+               // If the model used web search and needs another turn, handle it
+               if (j.stop_reason === "tool_use") {
+                 setProg("Searching for local price...");
+                 // Collect tool results and send back
+                 const toolBlocks = j.content.filter(b => b.type === "tool_use");
+                 const nextMsgs = [{role:"user",content:api},{role:"assistant",content:j.content},{role:"user",content:toolBlocks.map(tb=>({type:"tool_result",tool_use_id:tb.id,content:"Please continue with your best estimate based on your knowledge if web search is unavailable. Return the complete JSON."}))}];
+                 const res2=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:8192,system:"Return ONLY the complete valid JSON object with all extracted data. For local_price_estimate, use your best knowledge of retail prices.",messages:nextMsgs})});
+                 if(res2.ok){const j2=await res2.json();for(const block of (j2.content||[])){if(block.type==="text"&&block.text)fullText+=block.text}}
+               }
+               const txt=fullText.replace(/```json\s*/g,"").replace(/```/g,"").trim();
                let p;try{p=JSON.parse(txt)}catch{const m=txt.match(/\{[\s\S]*\}/);if(m)p=JSON.parse(m[0]);else throw Error("Parse failed")}
                p.event="";setData(p);
              }catch(e){setErr(e.message)}finally{setLoading(false);setProg("")}
@@ -356,9 +475,9 @@
            const[tempKey,setTempKey]=React.useState("");
            const[showModal,setShowModal]=React.useState(!apiKey);
            const[keyErr,setKeyErr]=React.useState("");
-           const saveKey=()=>{const k=tempKey.trim();if(!k){setKeyErr("Enter your API key.");return}if(!k.startsWith("sk-ant-")){setKeyErr("Key should start with sk-ant-");return}localStorage.setItem("pde_api_key",k);setApiKey(k);setShowModal(false);setKeyErr("")};
+           const saveKey=()=>{const k=tempKey.trim();if(!k){setKeyErr("Enter API key.");return}if(!k.startsWith("sk-ant-")){setKeyErr("Key should start with sk-ant-");return}localStorage.setItem("pde_api_key",k);setApiKey(k);setShowModal(false);setKeyErr("")};
            React.useEffect(()=>{if(!apiKey)return;const orig=window._origFetch||window.fetch;if(!window._origFetch)window._origFetch=window.fetch;window.fetch=function(url,opts){if(typeof url==="string"&&url.includes("api.anthropic.com")){opts=opts||{};opts.headers=opts.headers||{};opts.headers["x-api-key"]=apiKey;opts.headers["anthropic-version"]="2023-06-01";opts.headers["anthropic-dangerous-direct-browser-access"]="true"}return orig.call(this,url,opts)};return()=>{window.fetch=orig}},[apiKey]);
-           if(showModal)return(<div className="api-overlay"><div className="api-modal"><h2>API Key Required</h2><p>Enter your Anthropic API key. Stored locally in your browser only.</p>{keyErr&&<div style={{color:"#fca5a5",fontSize:11,marginBottom:8}}>{keyErr}</div>}<input type="password" placeholder="sk-ant-api03-..." value={tempKey} onChange={e=>{setTempKey(e.target.value);setKeyErr("")}} onKeyDown={e=>e.key==="Enter"&&saveKey()}/><button onClick={saveKey} disabled={!tempKey.trim()}>Save & Start</button><div className="hint">Get key at <a href="https://console.anthropic.com/settings/keys" target="_blank" style={{color:"#3b82f6"}}>console.anthropic.com</a></div></div></div>);
+           if(showModal)return(<div className="api-overlay"><div className="api-modal"><h2>API Key Required</h2><p>Enter your Anthropic API key. Stored locally in your browser only.</p>{keyErr&&<div style={{color:"#fca5a5",fontSize:11,marginBottom:8}}>{keyErr}</div>}<input type="password" placeholder="sk-ant-api03-..." value={tempKey} onChange={e=>{setTempKey(e.target.value);setKeyErr("")}} onKeyDown={e=>e.key==="Enter"&&saveKey()}/><button onClick={saveKey} disabled={!tempKey.trim()}>Save and Start</button><div className="hint">Get key at <a href="https://console.anthropic.com/settings/keys" target="_blank" style={{color:"#3b82f6"}}>console.anthropic.com</a></div></div></div>);
            return(<div><div style={{position:"fixed",top:8,right:8,zIndex:999,display:"flex",gap:4}}><button onClick={()=>{setTempKey(apiKey);setShowModal(true)}} style={{padding:"3px 8px",background:"#1e293b",border:"1px solid #334155",borderRadius:4,color:"#64748b",cursor:"pointer",fontSize:9}}>Key</button><button onClick={()=>{localStorage.removeItem("pde_api_key");setApiKey("");setShowModal(true)}} style={{padding:"3px 8px",background:"#1e293b",border:"1px solid #334155",borderRadius:4,color:"#64748b",cursor:"pointer",fontSize:9}}>Logout</button></div><App/></div>);
          }
          ReactDOM.createRoot(document.getElementById("root")).render(<AppWithAuth/>);
