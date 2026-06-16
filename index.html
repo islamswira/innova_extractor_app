@@ -33,7 +33,7 @@
          
          const COUNTRIES=["Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cambodia","Cameroon","Canada","Chad","Chile","China","Colombia","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic","Denmark","Dominican Republic","Ecuador","Egypt","El Salvador","Estonia","Ethiopia","Fiji","Finland","France","Gabon","Georgia","Germany","Ghana","Greece","Guatemala","Guinea","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Liberia","Libya","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Mauritania","Mauritius","Mexico","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Macedonia","Norway","Oman","Pakistan","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saudi Arabia","Senegal","Serbia","Sierra Leone","Singapore","Slovakia","Slovenia","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"];
          
-         const MAX_DIM=1568;
+         const MAX_DIM=2576;
          function readFile(f){return new Promise((r,j)=>{const R=new FileReader();R.onload=()=>r(R.result);R.onerror=()=>j(Error("Read failed"));R.readAsDataURL(f)})}
          
          function enhanceImage(ctx, w, h) {
@@ -136,7 +136,7 @@
          
          "claims": Translate ALL marketing claims to English. Include front AND back claims.
          
-         "extra_notes": ALL warnings, allergen notices, storage instructions, certifications. Translate to English.
+         "extra_notes": TWO things, translated to English: (1) WARNINGS — all warnings, allergen notices, storage instructions, certifications; and (2) PREPARATION / HOW TO USE — the full preparation method and usage/serving instructions (e.g. cooking steps, "heat for X minutes", "dilute with water", "shake before use", serving suggestions). Label the two parts clearly, e.g. "Warnings: ... | Preparation: ...". If one part is not on the packaging, write "None" for that part.
          
          "flavors": Array from most dominant to least. Read the EXACT flavor from the packaging.
            If product says "Strawberry" = ["Strawberry"]. If "Strawberry Banana" = ["Strawberry", "Banana"].
@@ -153,7 +153,6 @@
          
          "inner_packaging_type": What is the PRIMARY container? Choose from: ${JSON.stringify(FOOD_DD.pkg_type)}
          "inner_packaging_material": Choose from: ${JSON.stringify(FOOD_DD.pm)}
-         "packaging_filters": Choose ALL applicable from: ${JSON.stringify(FOOD_DD.pkg_filters)}
          "individual_pack_weight": Exact weight/volume with unit as printed (e.g., "200ml", "30g").
          "quantity_per_pack": Number of items. Single item = "1".
          "whole_pack_weight": Total package weight.
@@ -171,28 +170,32 @@
          
          "company": Parent/holding company.
          "co_packer": Look for "Packed by", "Co-packed by", "Distributed by" with a DIFFERENT company than manufacturer. Include their full details. If none: "Not found in images".
-         "manufactured_by": FULL legal name exactly as printed.
-         "produced_in": Exact country from "Made in", "Produced in", etc.
+         "manufactured_by": The MANUFACTURER's FULL legal name EXACTLY as printed (keep legal suffixes like S.A., S.L., GmbH, Ltd, LLC, SARL, S.p.A.). Use ONLY the entity tagged with a MAKER role: "Manufactured by / Manufacturer / Produced by / Made by / Fabriqué par / Fabricado por / Hergestellt von / Prodotto da / تصنيع / صنع بواسطة / إنتاج". Do NOT use "Distributed by / Imported by / Marketed by / Packed by / Sold by / For <brand>" — those are different roles and belong in co_packer, NOT here. Do NOT substitute the brand name for the legal manufacturer name. If no maker role is printed anywhere, leave "".
+         "produced_in": The COUNTRY OF ORIGIN / MANUFACTURE only, taken from an EXPLICIT statement: "Made in / Product of / Produced in / Country of origin / Origin / Fabriqué en / Hecho en / Prodotto in / صنع في / المنشأ / بلد المنشأ". This is NOT the distributor/importer country and NOT automatically the company-address country — a product is frequently MADE in one country and DISTRIBUTED from another, so never copy the importer's country here. Output the country name in English. If there is NO explicit origin statement, fall back to the MANUFACTURER's (not the distributor's) address country and note in network_member_comments that origin was inferred. If neither exists, leave "".
          "company_address": Parse COMPLETELY: house_number, street_name, city, state_region, postal_code, website.
-         "inner_packaging_color": Dominant color of the inner package. Choose from: ${JSON.stringify(FOOD_DD.inner_color)}
-         "outer_packaging_color": Dominant color of the outer package/box. Choose from: ${JSON.stringify(FOOD_DD.outer_color)}
-         "additional_features": Choose ALL applicable from: ${JSON.stringify(FOOD_DD.add_features)}
-         "functionality": Choose ALL applicable from: ${JSON.stringify(FOOD_DD.functionality)}
-         "packaging_description": Describe the packaging in 1-2 sentences (shape, material, design).
-         "label_material": Choose from: ${JSON.stringify(FOOD_DD.label_material)}
-         "label_type": Choose from: ${JSON.stringify(FOOD_DD.label_type)}
-         "label_color": Dominant label color. Choose from: ${JSON.stringify(FOOD_DD.label_color)}
-         "closure_material": Material of cap/lid/seal. Check bottom of package for SIG/Tetra marking. Choose from: ${JSON.stringify(FOOD_DD.closure_material)}
-         "closure_type": Type of closure device. Choose from: ${JSON.stringify(FOOD_DD.closure_type)}
+
+         "nutritional_info": Extract the nutrition table with MAXIMUM precision. This is the highest-priority, most error-prone field — slow down and verify every number.
+           STEP 1 - FIND THE TABLE: Locate the nutrition facts panel (labels vary by language: "Nutrition Facts", "Información Nutricional", "Valeurs nutritionnelles", "Valori nutrizionali", "Nährwerte", "القيمة الغذائية / القيم الغذائية", "Informação Nutricional"). Zoom in mentally on this region.
+           STEP 2 - PICK ONE COLUMN (critical): Nutrition tables OFTEN have multiple value columns (e.g. "per 100 g/ml" AND "per serving/portion", sometimes "%RI"). You MUST report all nutrient values from ONE single column. Selection rule:
+             - PREFER the "per 100 g" or "per 100 ml" column — it is the regulatory standard and most reliable.
+             - Only if there is NO per-100 column, use the per-serving/per-portion column.
+             - Record which column you used in "basis" (e.g. "per 100g", "per 100ml", "per serving (30g)").
+             - NEVER mix numbers from different columns. The "%RI"/"%DV" column is NOT a value column — it only fills "percent".
+           STEP 3 - READ NUMBERS EXACTLY:
+             - DECIMAL SEPARATOR: many countries print the decimal as a COMMA. "2,5 g" = 2.5 g; "0,8" = 0.8; "12,3" = 12.3. ALWAYS output with a dot. Do not treat a comma as a thousands separator.
+             - Read digit by digit; distinguish 0/O, 1/7, 3/8, 6/8. Preserve prefixes like "<0.5" exactly as printed.
+             - ENERGY is almost always BOTH units together, e.g. "1450 kJ / 347 kcal" — fill energy_kj AND energy_kcal.
+             - SUB-ROWS: "of which sugars" → put under "sugars" (NOT carbohydrate); "of which saturates/saturated" → put under "saturated_fat" (NOT fat). Never copy the parent total into the sub-row.
+             - UNITS: keep the printed unit. fat/saturated_fat/carbohydrate/sugars/fiber/protein/salt in g; sodium usually mg; energy kJ/kcal. Set the "unit" field to match what is printed.
+             - SALT vs SODIUM: transcribe whichever is printed. Do NOT calculate or convert a missing one — leave it empty.
+           STEP 4 - DO NOT INVENT: if a nutrient is not in the table, leave its value "". Never estimate or guess nutrition numbers from the product type.
+           Object fields (each nutrient = {"value":"number, dot decimal","unit":"g/mg/kJ/kcal","percent":"only if a %RI/%DV column is shown"}):
+             basis (string), serving_size (value+unit), servings_per_container, energy_kj, energy_kcal, fat, saturated_fat, carbohydrate, sugars, fiber, soluble_fiber, insoluble_fiber, raw_fiber, protein, sodium, salt.
          
-         "nutritional_info": Extract the COMPLETE nutritional table from the packaging. Return as object with these fields (use null if not found):
-           serving_size (value+unit), servings_per_container, energy_kj, energy_kcal, fat (value+unit), saturated_fat, carbohydrate, sugars, fiber, soluble_fiber, insoluble_fiber, raw_fiber, protein, sodium, salt.
-           For each nutrient, provide: {"value":"number","unit":"g/mg/kJ/kcal","percent":"% daily value if shown"}.
-         
-         "network_member_comments": Anything notable not covered above.
+         "network_member_comments": YOUR OWN analyst comments — observations, judgments, and flags that are NOT raw data already captured in another field. Do NOT repeat or restate the ingredients, nutrition, barcode, address, claims, weights, or any value extracted above. Instead write things like: low image quality or unreadable areas, fields you could not find, ambiguous/conflicting info between panels, assumptions you made, data quality concerns, or anything a reviewer should double-check. If you have no such commentary, return "".
          
          Return ONLY valid JSON, no markdown:
-         {"category":"","product_brand":"","product_name":"","positioning":[],"shelving_detail":"","claims":"","extra_notes":"","flavors":[],"expiry_date":"","manufactured_date":"","product_to_expire_in":"","duration":"","local_price_estimate":"","local_price_country":"","inner_packaging_type":"","inner_packaging_material":"","packaging_filters":[],"inner_packaging_color":"","outer_packaging_color":"","additional_features":[],"functionality":[],"packaging_description":"","label_material":"","label_type":"","label_color":"","closure_material":"","closure_type":"","individual_pack_weight":"","quantity_per_pack":"","whole_pack_weight":"","sig_tetra_closure":"","product_description":"","ingredients":"","nutritional_info":{"serving_size":{"value":"","unit":""},"servings_per_container":"","energy_kj":{"value":"","unit":"kJ","percent":""},"energy_kcal":{"value":"","unit":"kcal","percent":""},"fat":{"value":"","unit":"g","percent":""},"saturated_fat":{"value":"","unit":"g","percent":""},"carbohydrate":{"value":"","unit":"g","percent":""},"sugars":{"value":"","unit":"g","percent":""},"fiber":{"value":"","unit":"g","percent":""},"protein":{"value":"","unit":"g","percent":""},"sodium":{"value":"","unit":"mg","percent":""},"salt":{"value":"","unit":"g","percent":""}},"nutri_score":"","barcode":"","manufacturers_code":"","ec_code":"","ec_organic_code_1":"","ec_organic_code_2":"","agriculture_source":"","company":"","co_packer":"","manufactured_by":"","produced_in":"","company_address":{"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""},"network_member_comments":"","event":""}`;
+         {"category":"","product_brand":"","product_name":"","positioning":[],"shelving_detail":"","claims":"","extra_notes":"","flavors":[],"expiry_date":"","manufactured_date":"","product_to_expire_in":"","duration":"","local_price_estimate":"","local_price_country":"","inner_packaging_type":"","inner_packaging_material":"","individual_pack_weight":"","quantity_per_pack":"","whole_pack_weight":"","sig_tetra_closure":"","product_description":"","ingredients":"","nutritional_info":{"basis":{"value":""},"serving_size":{"value":"","unit":""},"servings_per_container":"","energy_kj":{"value":"","unit":"kJ","percent":""},"energy_kcal":{"value":"","unit":"kcal","percent":""},"fat":{"value":"","unit":"g","percent":""},"saturated_fat":{"value":"","unit":"g","percent":""},"carbohydrate":{"value":"","unit":"g","percent":""},"sugars":{"value":"","unit":"g","percent":""},"fiber":{"value":"","unit":"g","percent":""},"protein":{"value":"","unit":"g","percent":""},"sodium":{"value":"","unit":"mg","percent":""},"salt":{"value":"","unit":"g","percent":""}},"nutri_score":"","barcode":"","manufacturers_code":"","ec_code":"","ec_organic_code_1":"","ec_organic_code_2":"","agriculture_source":"","company":"","co_packer":"","manufactured_by":"","produced_in":"","company_address":{"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""},"network_member_comments":"","event":""}`;
          }
          
          function buildBeautyPrompt(country){
@@ -224,7 +227,9 @@
          "product_description": 2-3 detailed English sentences.
          "ingredients": COMPLETE INCI list. Every single ingredient.
          "barcode": ALL digits, no spaces.
-         "company","manufactured_by","produced_in": From packaging.
+         "company": Parent/holding or brand-owner company.
+         "manufactured_by": The MANUFACTURER's FULL legal name EXACTLY as printed (keep legal suffixes like S.A., S.L., GmbH, Ltd, LLC, SARL, S.p.A.). Use ONLY the entity tagged with a MAKER role: "Manufactured by / Manufacturer / Produced by / Made by / Fabriqué par / Fabricado por / Hergestellt von / تصنيع / صنع بواسطة / إنتاج". Do NOT use "Distributed by / Imported by / Marketed by / Sold by / For <brand>" — those are DIFFERENT roles. Do NOT substitute the brand name for the legal manufacturer name. If no maker role is printed, leave "".
+         "produced_in": The COUNTRY OF ORIGIN / MANUFACTURE only, from an EXPLICIT statement: "Made in / Product of / Country of origin / Origin / Fabriqué en / Hecho en / صنع في / المنشأ / بلد المنشأ". This is NOT the distributor/importer country and NOT automatically the company-address country — a product is frequently MADE in one country and DISTRIBUTED from another, so never copy the importer's country here. Output the country name in English. If there is NO explicit origin statement, fall back to the MANUFACTURER's (not the distributor's) address country and note in network_member_comments that origin was inferred. If neither exists, leave "".
          "company_address": {"house_number":"","street_name":"","city":"","state_region":"","postal_code":"","website":""}
          "network_member_comments": Anything extra.
          
@@ -242,12 +247,6 @@
            {k:"product_to_expire_in",l:"Product to Expire In"},{k:"duration",l:"Duration"},
            {k:"local_price_estimate",l:"Local Price"},{k:"local_price_country",l:"Price Country"},
            {k:"inner_packaging_type",l:"Inner Packaging Type",dd:"food_pt"},{k:"inner_packaging_material",l:"Inner Packaging Material",dd:"food_pm"},
-           {k:"packaging_filters",l:"Packaging Filters",arr:1,dd:"food_pf"},
-           {k:"inner_packaging_color",l:"Inner Packaging Color",dd:"f_ic"},{k:"outer_packaging_color",l:"Outer Packaging Color",dd:"f_oc"},
-           {k:"additional_features",l:"Additional Features",arr:1,dd:"f_af"},{k:"functionality",l:"Functionality",arr:1,dd:"f_fn"},
-           {k:"packaging_description",l:"Packaging Description",ml:1},
-           {k:"label_material",l:"Label Material",dd:"f_lm"},{k:"label_type",l:"Label Type",dd:"f_lt"},{k:"label_color",l:"Label Color",dd:"f_lc"},
-           {k:"closure_material",l:"Closure Material",dd:"f_cm"},{k:"closure_type",l:"Closure Type",dd:"f_ct"},
            {k:"individual_pack_weight",l:"Individual Pack Weight"},{k:"quantity_per_pack",l:"Quantity Per Pack"},{k:"whole_pack_weight",l:"Whole Pack Weight"},
            {k:"sig_tetra_closure",l:"SIG/Tetra Closure Type",dd:"food_cl"},
            {k:"product_description",l:"Product Description",ml:1},{k:"ingredients",l:"Ingredients",ml:1},
@@ -302,18 +301,8 @@
              if(f.dd==="food_pos")return FOOD_DD.positioning;
              if(f.dd==="food_pt")return FOOD_DD.pkg_type;
              if(f.dd==="food_pm")return FOOD_DD.pm;
-             if(f.dd==="food_pf")return FOOD_DD.pkg_filters;
              if(f.dd==="food_cl")return FOOD_DD.closure;
              if(f.dd==="food_ag")return FOOD_DD.agri;
-             if(f.dd==="f_ic")return FOOD_DD.inner_color;
-             if(f.dd==="f_oc")return FOOD_DD.outer_color;
-             if(f.dd==="f_af")return FOOD_DD.add_features;
-             if(f.dd==="f_fn")return FOOD_DD.functionality;
-             if(f.dd==="f_lm")return FOOD_DD.label_material;
-             if(f.dd==="f_lt")return FOOD_DD.label_type;
-             if(f.dd==="f_lc")return FOOD_DD.label_color;
-             if(f.dd==="f_cm")return FOOD_DD.closure_material;
-             if(f.dd==="f_ct")return FOOD_DD.closure_type;
              if(f.dd==="shelving")return["Freezer","Fridge","Ambient"];
              if(f.dd==="nutri")return["A","B","C","D","E","Not found"];
              if(f.dd==="b_types")return BEAUTY_DD.types;
@@ -477,6 +466,7 @@
                                <div style={{background:"#0d1117",borderRadius:8,padding:8,border:"1px solid #1e293b"}}>
                                  {(()=>{
                                    const ni=v||{};const NUTRI_ROWS=[
+                                     {k:"basis",l:"Values Basis",noUnit:1},
                                      {k:"serving_size",l:"Serving Size",noUnit:1},{k:"servings_per_container",l:"Servings/Container",noUnit:1},
                                      {k:"energy_kj",l:"Energy (kJ)",defU:"kJ"},{k:"energy_kcal",l:"Energy (kcal)",defU:"kcal"},
                                      {k:"fat",l:"Fat",defU:"g"},{k:"saturated_fat",l:"Saturated Fat",defU:"g"},
